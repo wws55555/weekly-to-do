@@ -1,0 +1,14 @@
+{
+  "name": "weekly-to-do",
+  "version": "1.0.0",
+  "description": "위클리 플래너 - Capacitor 기반 iOS/Android 앱 셸",
+  "private": true,
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0"
+  }
+}

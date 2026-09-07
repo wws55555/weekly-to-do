@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">위클리 플래너</string>
+    <string name="title_activity_main">위클리 플래너</string>
+    <string name="package_name">com.wwscj.weeklyplanner</string>
+    <string name="custom_url_scheme">com.wwscj.weeklyplanner</string>
+</resources>
