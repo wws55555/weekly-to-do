@@ -4,27 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A single-page Korean-language weekly to-do list ("위클리 플래너"), shared/live between whoever opens it (no per-user accounts — one anonymous Firebase identity, one shared Firestore dataset). It ships two ways from the same source: a Firebase-hosted web page, and an Android app via a Capacitor shell.
+A single-page Korean-language weekly to-do list ("위클리 플래너"), shared/live between whoever opens it (no per-user accounts — one anonymous Firebase identity, one shared Firestore dataset). It's used purely as an Android app via a Capacitor shell — there is no web hosting/deployment target (Firebase Hosting was intentionally removed; `firebase.json` has no `hosting` config, only Firebase Auth + Firestore are used).
 
-## Source of truth: `index.html`
+## Source of truth: `public/index.html`
 
-The entire app — HTML, CSS, and a React 18 component tree written in JSX — lives in **one file**, `index.html`. There is no bundler, no npm build step, no JSX precompilation: React, ReactDOM, and Babel Standalone are loaded from CDN `<script>` tags, and the app's own code sits in a `<script type="text/babel">` block that Babel compiles in-browser on load.
+The entire app — HTML, CSS, and a React 18 component tree written in JSX — lives in **one file**, `public/index.html`. There is no bundler, no npm build step, no JSX precompilation: React, ReactDOM, and Babel Standalone are loaded from CDN `<script>` tags, and the app's own code sits in a `<script type="text/babel">` block that Babel compiles in-browser on load.
 
-**`public/index.html` is a generated copy, never edit it directly.** `firebase.json`'s `predeploy` hook (`cp index.html public/index.html`) is what normally keeps it in sync, but that only fires on `firebase deploy`. Since Capacitor's `webDir` is `public` (see `capacitor.config.json`), any change to `index.html` meant to be tested on Android must be copied over manually first:
-```bash
-cp index.html public/index.html
-```
+It lives under `public/` (rather than the repo root) only because that's Capacitor's `webDir` (see `capacitor.config.json`) — the folder `npx cap sync`/`copy` copies wholesale into the native Android project. There is no other copy anywhere and no sync step between files — edit `public/index.html` directly.
 
 ## Commands
 
 There is no build, lint, or test tooling in this repo — `package.json` has no `scripts` block, and there's no test framework or CI config. "Testing" a change means running the app and looking at it.
 
-- **Preview in a browser**: serve the repo root (e.g. `python3 -m http.server`) and open `index.html`. It talks to a live Firebase project, so it needs network access.
-- **Deploy web**: `firebase deploy` (uses `.firebaserc` project `weekly-planner-5f03b`; the predeploy hook syncs `public/index.html` automatically).
-- **Run/build/inspect the Android app**: use the `run-android` skill (`.claude/skills/run-android/driver.sh`), which drives the whole cycle via `adb`/Gradle — `sync` (Capacitor sync), `build` (assembleDebug), `boot`, `install`, `launch`, `screenshot`, `tap`, `text`, `logcat`, `stop`. Always `cp index.html public/index.html` and `driver.sh sync` before `driver.sh build` if `index.html` changed. See the skill's own docs for known gotchas (adb can't type Hangul, focus-vs-rendered timing, etc.).
+- **Preview in a browser**: serve `public/` (e.g. `cd public && python3 -m http.server`) and open `index.html`. It talks to a live Firebase project, so it needs network access.
+- **Run/build/inspect the Android app**: use the `run-android` skill (`.claude/skills/run-android/driver.sh`), which drives the whole cycle via `adb`/Gradle — `sync` (Capacitor sync), `build` (assembleDebug), `boot`, `install`, `launch`, `screenshot`, `tap`, `text`, `logcat`, `stop`. Run `driver.sh sync` before `driver.sh build` whenever `public/index.html` changed. See the skill's own docs for known gotchas (adb can't type Hangul, focus-vs-rendered timing, etc.).
 - `android/` is a generated Capacitor project — treat it as build output, not hand-written source; native changes go through `npx cap sync android`, not manual edits to `android/app/src/main/assets`.
 
-## Architecture inside `index.html`
+## Architecture inside `public/index.html`
 
 - **Data model**: Firestore, one document per calendar week at `weeklyPlanner/{weekKey}`, where `weekKey` is that week's Monday as `YYYY-MM-DD` (`toKey(getMonday(date))`). Each doc holds a single `tasks` array covering all 7 days — there is no one-doc-per-task structure. A task looks like:
   ```js
