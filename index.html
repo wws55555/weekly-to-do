@@ -155,11 +155,28 @@ function WeeklyPlanner() {
   const [authUid, setAuthUid] = useState(null);
   const dbRef = useRef(null);
 
-  const today = useMemo(() => new Date(), []);
+  const [today, setToday] = useState(() => new Date());
   const monday = useMemo(() => addDays(getMonday(today), weekOffset * 7), [today, weekOffset]);
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday]);
   const weekKey = useMemo(() => toKey(monday), [monday]);
   const todayIndexInWeek = useMemo(() => weekDates.findIndex((d) => isSameDay(d, today)), [weekDates, today]);
+  const prevWeekCarryRanForRef = useRef(null);
+
+  // keep "today" current if the app is left open across midnight
+  useEffect(() => {
+    const checkDay = () => {
+      setToday((prev) => {
+        const now = new Date();
+        return isSameDay(now, prev) ? prev : now;
+      });
+    };
+    const interval = setInterval(checkDay, 60000);
+    document.addEventListener("visibilitychange", checkDay);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", checkDay);
+    };
+  }, []);
 
   // sign in anonymously once
   useEffect(() => {
@@ -214,6 +231,59 @@ function WeeklyPlanner() {
         setConnectionOk(false);
       });
   }, [weekKey]);
+
+  // carry over incomplete tasks from earlier days in this week to today, as
+  // independent copies — the original stays on its own day (marked so it
+  // isn't copied again), the copy lands on today and is a separate task
+  const makeCarriedCopy = (t, dayIdx) => ({
+    id: uid(),
+    day: dayIdx,
+    text: t.text,
+    done: false,
+    important: t.important,
+    createdAt: Date.now(),
+    carriedOver: true,
+  });
+
+  useEffect(() => {
+    if (weekOffset !== 0 || loading || todayIndexInWeek < 0) return;
+    const toForward = tasks.filter((t) => !t.done && !t.forwarded && t.day < todayIndexInWeek);
+    if (toForward.length === 0) return;
+    const forwardIds = new Set(toForward.map((t) => t.id));
+    const marked = tasks.map((t) => (forwardIds.has(t.id) ? { ...t, forwarded: true } : t));
+    const copies = toForward.map((t) => makeCarriedCopy(t, todayIndexInWeek));
+    persist([...marked, ...copies]);
+  }, [tasks, todayIndexInWeek, weekOffset, loading, persist]);
+
+  // carry over incomplete tasks left in last week's document, once per week view
+  useEffect(() => {
+    if (weekOffset !== 0 || loading || todayIndexInWeek < 0) return;
+    if (!authUid || !dbRef.current) return;
+    if (prevWeekCarryRanForRef.current === weekKey) return;
+    prevWeekCarryRanForRef.current = weekKey;
+
+    const db = dbRef.current;
+    const currentRef = db.collection("weeklyPlanner").doc(weekKey);
+    const prevKey = toKey(addDays(monday, -7));
+    const prevRef = db.collection("weeklyPlanner").doc(prevKey);
+
+    db.runTransaction(async (tx) => {
+      const [currentSnap, prevSnap] = await Promise.all([tx.get(currentRef), tx.get(prevRef)]);
+      const currentTasks = currentSnap.exists && Array.isArray(currentSnap.data().tasks) ? currentSnap.data().tasks : [];
+      const prevTasks = prevSnap.exists && Array.isArray(prevSnap.data().tasks) ? prevSnap.data().tasks : [];
+
+      const toForward = prevTasks.filter((t) => !t.done && !t.forwarded);
+      if (toForward.length === 0) return;
+
+      const forwardIds = new Set(toForward.map((t) => t.id));
+      const markedPrev = prevTasks.map((t) => (forwardIds.has(t.id) ? { ...t, forwarded: true } : t));
+      const copies = toForward.map((t) => makeCarriedCopy(t, todayIndexInWeek));
+      const nextCurrent = [...currentTasks, ...copies];
+
+      tx.set(currentRef, { tasks: nextCurrent, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      tx.set(prevRef, { tasks: markedPrev, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    }).catch((e) => console.error("carry-over (prev week) failed", e));
+  }, [weekOffset, loading, todayIndexInWeek, authUid, weekKey, monday]);
 
   const addTask = () => {
     const text = inputText.trim();
@@ -335,6 +405,7 @@ function WeeklyPlanner() {
                     <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
                       {t.done && <Check size={12} strokeWidth={3} />}
                     </button>
+                    {t.carriedOver && <span className="wk-carried-badge">이월</span>}
                     <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
                     <button className={`wk-star-btn${t.important ? " is-active" : ""}`} onClick={() => toggleImportant(t.id)} aria-label="중요 표시">
                       <Star size={14} fill={t.important ? "currentColor" : "none"} />
@@ -458,6 +529,8 @@ if (firebaseReady) {
 
   .wk-item-text { flex: 1; font-size: 14px; line-height: 1.5; word-break: break-word; padding-top: 1px; }
   .wk-item-text.is-done { color: var(--ink-faint); text-decoration: line-through; }
+
+  .wk-carried-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: var(--gold); background: var(--gold-soft); padding: 1px 6px; border-radius: 999px; flex: none; margin-top: 2px; }
 
   .wk-star-btn, .wk-del-btn { background: transparent; border: none; padding: 2px; flex: none; color: var(--ink-faint); border-radius: 5px; opacity: 0; transition: opacity .12s ease, color .12s ease; }
   .wk-item:hover .wk-star-btn, .wk-item:hover .wk-del-btn, .wk-star-btn.is-active { opacity: 1; }
