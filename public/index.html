@@ -235,7 +235,7 @@ function WeeklyPlanner() {
   // carry over incomplete tasks from earlier days in this week to today, as
   // independent copies — the original stays on its own day (marked so it
   // isn't copied again), the copy lands on today and is a separate task
-  const makeCarriedCopy = (t, dayIdx) => ({
+  const makeCarriedCopy = (t, dayIdx, sourceMonday) => ({
     id: uid(),
     day: dayIdx,
     text: t.text,
@@ -243,6 +243,7 @@ function WeeklyPlanner() {
     important: t.important,
     createdAt: Date.now(),
     carriedOver: true,
+    originDate: t.originDate || formatMD(addDays(sourceMonday, t.day)),
   });
 
   useEffect(() => {
@@ -251,9 +252,9 @@ function WeeklyPlanner() {
     if (toForward.length === 0) return;
     const forwardIds = new Set(toForward.map((t) => t.id));
     const marked = tasks.map((t) => (forwardIds.has(t.id) ? { ...t, forwarded: true } : t));
-    const copies = toForward.map((t) => makeCarriedCopy(t, todayIndexInWeek));
+    const copies = toForward.map((t) => makeCarriedCopy(t, todayIndexInWeek, monday));
     persist([...marked, ...copies]);
-  }, [tasks, todayIndexInWeek, weekOffset, loading, persist]);
+  }, [tasks, todayIndexInWeek, weekOffset, loading, persist, monday]);
 
   // carry over incomplete tasks left in last week's document, once per week view
   useEffect(() => {
@@ -264,7 +265,8 @@ function WeeklyPlanner() {
 
     const db = dbRef.current;
     const currentRef = db.collection("weeklyPlanner").doc(weekKey);
-    const prevKey = toKey(addDays(monday, -7));
+    const prevMonday = addDays(monday, -7);
+    const prevKey = toKey(prevMonday);
     const prevRef = db.collection("weeklyPlanner").doc(prevKey);
 
     db.runTransaction(async (tx) => {
@@ -277,7 +279,7 @@ function WeeklyPlanner() {
 
       const forwardIds = new Set(toForward.map((t) => t.id));
       const markedPrev = prevTasks.map((t) => (forwardIds.has(t.id) ? { ...t, forwarded: true } : t));
-      const copies = toForward.map((t) => makeCarriedCopy(t, todayIndexInWeek));
+      const copies = toForward.map((t) => makeCarriedCopy(t, todayIndexInWeek, prevMonday));
       const nextCurrent = [...currentTasks, ...copies];
 
       tx.set(currentRef, { tasks: nextCurrent, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
@@ -405,8 +407,8 @@ function WeeklyPlanner() {
                     <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
                       {t.done && <Check size={12} strokeWidth={3} />}
                     </button>
-                    {t.carriedOver && <span className="wk-carried-badge">이월</span>}
                     <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
+                    {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
                     <button className={`wk-star-btn${t.important ? " is-active" : ""}`} onClick={() => toggleImportant(t.id)} aria-label="중요 표시">
                       <Star size={14} fill={t.important ? "currentColor" : "none"} />
                     </button>
