@@ -2,13 +2,15 @@
 // no carry-over logic live here — see useWeeklyTasks.js / firestoreApi.js.
 function WeeklyPlanner() {
   const [inputText, setInputText] = React.useState("");
+  const [editingId, setEditingId] = React.useState(null);
+  const [editingText, setEditingText] = React.useState("");
   const {
     authUser, authChecked, authError, authPending, signUp, signIn, signOut,
     weekOffset, setWeekOffset,
     connectionOk, loading,
     selectedDay, setSelectedDay,
     today, weekDates,
-    addTask, toggleDone, toggleImportant, removeTask, clearDay,
+    addTask, editTask, toggleDone, toggleImportant, removeTask, clearDay,
     tasksFor, progressFor, weekProgress,
   } = useWeeklyTasks();
 
@@ -16,6 +18,16 @@ function WeeklyPlanner() {
     addTask(inputText, selectedDay);
     setInputText("");
   };
+
+  const startEdit = (t) => {
+    setEditingId(t.id);
+    setEditingText(t.text);
+  };
+  const commitEdit = () => {
+    if (editingId) editTask(editingId, editingText);
+    setEditingId(null);
+  };
+  const cancelEdit = () => setEditingId(null);
 
   if (!authChecked) {
     return <div className="wk-root"><div className="wk-loading">불러오는 중…</div></div>;
@@ -109,15 +121,32 @@ function WeeklyPlanner() {
                 {activeList.length === 0 && <div className="wk-empty">할 일이 없어요</div>}
                 {activeList.map((t) => (
                   <div key={t.id} className="wk-item">
-                    <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
-                      {t.done && <Check size={12} strokeWidth={3} />}
-                    </button>
-                    <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
-                    {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
-                    <button className={`wk-star-btn${t.important ? " is-active" : ""}`} onClick={() => toggleImportant(t.id)} aria-label="중요 표시">
-                      <Star size={14} fill={t.important ? "currentColor" : "none"} />
-                    </button>
-                    <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
+                    {editingId === t.id ? (
+                      <input
+                        className="wk-edit-input"
+                        value={editingText}
+                        autoFocus
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
+                          if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
+                          {t.done && <Check size={12} strokeWidth={3} />}
+                        </button>
+                        <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
+                        {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
+                        <button className="wk-edit-btn" onClick={() => startEdit(t)} aria-label="수정"><Pencil size={13} /></button>
+                        <button className={`wk-star-btn${t.important ? " is-active" : ""}`} onClick={() => toggleImportant(t.id)} aria-label="중요 표시">
+                          <Star size={14} fill={t.important ? "currentColor" : "none"} />
+                        </button>
+                        <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
