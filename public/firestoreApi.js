@@ -88,6 +88,31 @@ var WeeklyPlannerAPI = (function () {
     });
   }
 
+  // moves a task between two arbitrary week docs (both under the same uid) in
+  // one transaction — used when editing a task's date lands it in a
+  // different week than the one currently open. computeMove(sourceTasks,
+  // targetTasks) decides what to write to each side; returns null to skip
+  // the write entirely, or { nextSource, nextTarget } to commit both docs
+  // atomically. Only call this when sourceKey !== targetKey — same-doc
+  // moves should just go through writeWeek instead.
+  function moveTaskAcrossWeeks(uid, sourceKey, targetKey, computeMove) {
+    var db = firebase.firestore();
+    var sourceRef = weekDoc(uid, sourceKey);
+    var targetRef = weekDoc(uid, targetKey);
+
+    return db.runTransaction(async function (tx) {
+      var snaps = await Promise.all([tx.get(sourceRef), tx.get(targetRef)]);
+      var sourceTasks = snaps[0].exists && Array.isArray(snaps[0].data().tasks) ? snaps[0].data().tasks : [];
+      var targetTasks = snaps[1].exists && Array.isArray(snaps[1].data().tasks) ? snaps[1].data().tasks : [];
+
+      var update = computeMove(sourceTasks, targetTasks);
+      if (!update) return;
+
+      tx.set(sourceRef, { tasks: update.nextSource, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      tx.set(targetRef, { tasks: update.nextTarget, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    });
+  }
+
   return {
     get firebaseReady() { return firebaseReady; },
     watchAuthState: watchAuthState,
@@ -96,6 +121,7 @@ var WeeklyPlannerAPI = (function () {
     signOutUser: signOutUser,
     watchWeek: watchWeek,
     writeWeek: writeWeek,
-    runCarryOverFromPrevWeek: runCarryOverFromPrevWeek
+    runCarryOverFromPrevWeek: runCarryOverFromPrevWeek,
+    moveTaskAcrossWeeks: moveTaskAcrossWeeks
   };
 })();

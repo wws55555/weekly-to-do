@@ -174,10 +174,45 @@ function useWeeklyTasks() {
     const next = [...tasks, { id: uid(), day: dayIdx, text: trimmed, done: false, createdAt: Date.now() }];
     persist(next);
   };
-  const editTask = (id, text) => {
+  // editTask optionally also moves the task to a new date: targetDate is a
+  // local-midnight Date, or omitted/null to just change the text in place.
+  // Landing on a day within the currently-open week is a plain client-side
+  // day change; landing in a different week crosses Firestore documents, so
+  // that case goes through a transaction (moveTaskAcrossWeeks) instead of
+  // persist() — the task optimistically disappears from the current view
+  // right away, and the target week's own subscription picks it up when it's
+  // next viewed.
+  const editTask = (id, text, targetDate) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    persist(tasks.map((t) => (t.id === id ? { ...t, text: trimmed } : t)));
+
+    if (!targetDate) {
+      persist(tasks.map((t) => (t.id === id ? { ...t, text: trimmed } : t)));
+      return;
+    }
+
+    const targetMonday = getMonday(targetDate);
+    const targetWeekKey = toKey(targetMonday);
+    const targetDay = Math.round((targetDate - targetMonday) / 86400000);
+
+    if (targetWeekKey === weekKey) {
+      persist(tasks.map((t) => (t.id === id ? { ...t, text: trimmed, day: targetDay } : t)));
+      return;
+    }
+
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    WeeklyPlannerAPI.moveTaskAcrossWeeks(authUser.uid, weekKey, targetWeekKey, (sourceTasks, targetTasks) => {
+      const idx = sourceTasks.findIndex((t) => t.id === id);
+      if (idx === -1) return null;
+      const movedTask = { ...sourceTasks[idx], text: trimmed, day: targetDay };
+      return {
+        nextSource: sourceTasks.filter((t) => t.id !== id),
+        nextTarget: [...targetTasks, movedTask],
+      };
+    }).catch((e) => {
+      console.error(e);
+      setConnectionOk(false);
+    });
   };
   const toggleDone = (id) => persist(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   const removeTask = (id) => {
