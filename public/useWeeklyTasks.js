@@ -165,6 +165,11 @@ function useWeeklyTasks() {
     const next = [...tasks, { id: uid(), day: dayIdx, text: trimmed, done: false, important: false, createdAt: Date.now() }];
     persist(next);
   };
+  const editTask = (id, text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    persist(tasks.map((t) => (t.id === id ? { ...t, text: trimmed } : t)));
+  };
   const toggleDone = (id) => persist(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   const toggleImportant = (id) => persist(tasks.map((t) => (t.id === id ? { ...t, important: !t.important } : t)));
   const removeTask = (id) => persist(tasks.filter((t) => t.id !== id));
@@ -198,7 +203,7 @@ function useWeeklyTasks() {
     connectionOk, loading,
     selectedDay, setSelectedDay,
     today, weekDates,
-    addTask, toggleDone, toggleImportant, removeTask, clearDay,
+    addTask, editTask, toggleDone, toggleImportant, removeTask, clearDay,
     tasksFor, progressFor, weekProgress,
   };
 }
