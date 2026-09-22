@@ -4,6 +4,7 @@ function WeeklyPlanner() {
   const [inputText, setInputText] = React.useState("");
   const [editingId, setEditingId] = React.useState(null);
   const [editingText, setEditingText] = React.useState("");
+  const [editingDate, setEditingDate] = React.useState("");
   const [reorderMode, setReorderMode] = React.useState(false);
   const [reorderIds, setReorderIds] = React.useState([]);
   const [draggingId, setDraggingId] = React.useState(null);
@@ -61,9 +62,18 @@ function WeeklyPlanner() {
   const startEdit = (t) => {
     setEditingId(t.id);
     setEditingText(t.text);
+    setEditingDate(toKey(weekDates[selectedDay]));
   };
   const commitEdit = () => {
-    if (editingId) editTask(editingId, editingText);
+    if (editingId) {
+      const originalDateKey = toKey(weekDates[selectedDay]);
+      if (editingDate && editingDate !== originalDateKey) {
+        const [y, m, d] = editingDate.split("-").map(Number);
+        editTask(editingId, editingText, new Date(y, m - 1, d));
+      } else {
+        editTask(editingId, editingText);
+      }
+    }
     setEditingId(null);
   };
   const cancelEdit = () => setEditingId(null);
@@ -258,17 +268,32 @@ function WeeklyPlanner() {
                       return (
                         <div key={t.id} className="wk-item">
                           {editingId === t.id ? (
-                            <input
-                              className="wk-edit-input"
-                              value={editingText}
-                              autoFocus
-                              onChange={(e) => setEditingText(e.target.value)}
-                              onBlur={commitEdit}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
-                                if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
-                              }}
-                            />
+                            <>
+                              <div className="wk-edit-fields">
+                                <input
+                                  className="wk-edit-input"
+                                  value={editingText}
+                                  autoFocus
+                                  onChange={(e) => setEditingText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
+                                    if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
+                                  }}
+                                />
+                                <input
+                                  type="date"
+                                  className="wk-edit-date"
+                                  value={editingDate}
+                                  onChange={(e) => setEditingDate(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
+                                    if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
+                                  }}
+                                />
+                              </div>
+                              <button className="wk-edit-confirm-btn" onClick={commitEdit} aria-label="수정 완료"><Check size={14} strokeWidth={3} /></button>
+                              <button className="wk-edit-cancel-btn" onClick={cancelEdit} aria-label="수정 취소"><X size={14} /></button>
+                            </>
                           ) : (
                             <>
                               <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
