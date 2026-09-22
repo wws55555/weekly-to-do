@@ -25,3 +25,4 @@ const Grip = (p) => (
     <circle cx="15" cy="18" r="1.2" fill="currentColor" stroke="none" />
   </Icon>
 );
+const ListChecks = (p) => <Icon {...p}><path d="m3 7 2 2 4-4" /><path d="m3 15 2 2 4-4" /><path d="M11 6h9" /><path d="M11 14h9" /></Icon>;

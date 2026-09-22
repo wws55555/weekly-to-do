@@ -7,6 +7,8 @@ function WeeklyPlanner() {
   const [reorderMode, setReorderMode] = React.useState(false);
   const [reorderIds, setReorderIds] = React.useState([]);
   const [draggingId, setDraggingId] = React.useState(null);
+  const [checklistOpenId, setChecklistOpenId] = React.useState(null);
+  const [checklistInput, setChecklistInput] = React.useState("");
   const rowRefs = React.useRef({});
   const dragPointerId = React.useRef(null);
   const {
@@ -16,12 +18,13 @@ function WeeklyPlanner() {
     selectedDay, setSelectedDay,
     today, weekDates,
     addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
+    addChecklistItem, toggleChecklistItem, removeChecklistItem,
     tasksFor, progressFor,
   } = useWeeklyTasks();
 
   // leaving the day (or the whole day's list) mid-reorder would leave stale
-  // drag state around, so just drop out of reorder mode
-  React.useEffect(() => { setReorderMode(false); setDraggingId(null); }, [selectedDay]);
+  // drag/checklist state around, so just drop out of reorder mode
+  React.useEffect(() => { setReorderMode(false); setDraggingId(null); setChecklistOpenId(null); }, [selectedDay]);
 
   const handleAddTask = () => {
     addTask(inputText, selectedDay);
@@ -38,7 +41,17 @@ function WeeklyPlanner() {
   };
   const cancelEdit = () => setEditingId(null);
 
+  const toggleChecklistOpen = (id) => {
+    setChecklistOpenId((prev) => (prev === id ? null : id));
+    setChecklistInput("");
+  };
+  const handleAddChecklistItem = (taskId) => {
+    addChecklistItem(taskId, checklistInput);
+    setChecklistInput("");
+  };
+
   const enterReorderMode = (list) => {
+    setChecklistOpenId(null);
     setReorderIds(list.map((t) => t.id));
     setReorderMode(true);
   };
@@ -196,33 +209,76 @@ function WeeklyPlanner() {
                         </div>
                       );
                     })
-                  : activeList.map((t) => (
-                      <div key={t.id} className="wk-item">
-                        {editingId === t.id ? (
-                          <input
-                            className="wk-edit-input"
-                            value={editingText}
-                            autoFocus
-                            onChange={(e) => setEditingText(e.target.value)}
-                            onBlur={commitEdit}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
-                              if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
-                            }}
-                          />
-                        ) : (
-                          <>
-                            <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
-                              {t.done && <Check size={12} strokeWidth={3} />}
-                            </button>
-                            <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
-                            {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
-                            <button className="wk-edit-btn" onClick={() => startEdit(t)} aria-label="수정"><Pencil size={13} /></button>
-                            <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                  : activeList.map((t) => {
+                      const checklist = t.checklist || [];
+                      const checklistDone = checklist.filter((c) => c.done).length;
+                      return (
+                        <div key={t.id} className="wk-item-group">
+                          <div className="wk-item">
+                            {editingId === t.id ? (
+                              <input
+                                className="wk-edit-input"
+                                value={editingText}
+                                autoFocus
+                                onChange={(e) => setEditingText(e.target.value)}
+                                onBlur={commitEdit}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
+                                  if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
+                                  {t.done && <Check size={12} strokeWidth={3} />}
+                                </button>
+                                <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
+                                {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
+                                {checklist.length > 0 && <span className="wk-checklist-badge">{checklistDone}/{checklist.length}</span>}
+                                <button className={`wk-checklist-btn${checklistOpenId === t.id ? " is-active" : ""}`} onClick={() => toggleChecklistOpen(t.id)} aria-label="세부 체크리스트">
+                                  <ListChecks size={13} />
+                                </button>
+                                <button className="wk-edit-btn" onClick={() => startEdit(t)} aria-label="수정"><Pencil size={13} /></button>
+                                <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
+                              </>
+                            )}
+                          </div>
+
+                          {checklistOpenId === t.id && (
+                            <div className="wk-checklist">
+                              {checklist.length === 0 && <div className="wk-checklist-empty">세부 항목이 없어요</div>}
+                              {checklist.map((c) => (
+                                <div key={c.id} className="wk-checklist-item">
+                                  <button
+                                    className={`wk-checklist-check${c.done ? " is-done" : ""}`}
+                                    onClick={() => toggleChecklistItem(t.id, c.id)}
+                                    aria-label={c.done ? "완료 취소" : "완료로 표시"}
+                                  >
+                                    {c.done && <Check size={10} strokeWidth={3} />}
+                                  </button>
+                                  <span className={`wk-checklist-text${c.done ? " is-done" : ""}`}>{c.text}</span>
+                                  <button className="wk-checklist-del" onClick={() => removeChecklistItem(t.id, c.id)} aria-label="세부 항목 삭제">
+                                    <X size={11} />
+                                  </button>
+                                </div>
+                              ))}
+                              <div className="wk-checklist-add-row">
+                                <input
+                                  className="wk-checklist-input"
+                                  placeholder="세부 항목 추가"
+                                  value={checklistInput}
+                                  onChange={(e) => setChecklistInput(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(t.id); }}
+                                />
+                                <button className="wk-checklist-add-btn" onClick={() => handleAddChecklistItem(t.id)} aria-label="세부 항목 추가">
+                                  <Plus size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
               </div>
 
               {!reorderMode && (
