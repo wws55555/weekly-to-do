@@ -4,15 +4,24 @@ function WeeklyPlanner() {
   const [inputText, setInputText] = React.useState("");
   const [editingId, setEditingId] = React.useState(null);
   const [editingText, setEditingText] = React.useState("");
+  const [reorderMode, setReorderMode] = React.useState(false);
+  const [reorderIds, setReorderIds] = React.useState([]);
+  const [draggingId, setDraggingId] = React.useState(null);
+  const rowRefs = React.useRef({});
+  const dragPointerId = React.useRef(null);
   const {
     authUser, authChecked, authError, authPending, signUp, signIn, signOut,
     weekOffset, setWeekOffset,
     connectionOk, loading,
     selectedDay, setSelectedDay,
     today, weekDates,
-    addTask, editTask, toggleDone, toggleImportant, removeTask, clearDay,
+    addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
     tasksFor, progressFor, weekProgress,
   } = useWeeklyTasks();
+
+  // leaving the day (or the whole day's list) mid-reorder would leave stale
+  // drag state around, so just drop out of reorder mode
+  React.useEffect(() => { setReorderMode(false); setDraggingId(null); }, [selectedDay]);
 
   const handleAddTask = () => {
     addTask(inputText, selectedDay);
@@ -29,6 +38,47 @@ function WeeklyPlanner() {
   };
   const cancelEdit = () => setEditingId(null);
 
+  const enterReorderMode = (list) => {
+    setReorderIds(list.map((t) => t.id));
+    setReorderMode(true);
+  };
+  const exitReorderMode = () => {
+    setReorderMode(false);
+    setDraggingId(null);
+  };
+  const handleGripPointerDown = (e, id) => {
+    e.preventDefault();
+    dragPointerId.current = e.pointerId;
+    setDraggingId(id);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const handleGripPointerMove = (e) => {
+    if (draggingId === null || e.pointerId !== dragPointerId.current) return;
+    const y = e.clientY;
+    let closestId = null;
+    let closestDist = Infinity;
+    for (const id of reorderIds) {
+      const el = rowRefs.current[id];
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      const dist = Math.abs(rect.top + rect.height / 2 - y);
+      if (dist < closestDist) { closestDist = dist; closestId = id; }
+    }
+    if (closestId && closestId !== draggingId) {
+      setReorderIds((prev) => {
+        const next = prev.filter((id) => id !== draggingId);
+        next.splice(next.indexOf(closestId), 0, draggingId);
+        return next;
+      });
+    }
+  };
+  const handleGripPointerUp = () => {
+    if (draggingId === null) return;
+    reorderDay(selectedDay, reorderIds);
+    setDraggingId(null);
+    dragPointerId.current = null;
+  };
+
   if (!authChecked) {
     return <div className="wk-root"><div className="wk-loading">불러오는 중…</div></div>;
   }
@@ -41,6 +91,7 @@ function WeeklyPlanner() {
   const isThisWeek = weekOffset === 0;
   const activeList = selectedDay === null ? [] : tasksFor(selectedDay);
   const activeProgress = selectedDay === null ? { done: 0, total: 0 } : progressFor(selectedDay);
+  const taskById = Object.fromEntries(activeList.map((t) => [t.id, t]));
 
   return (
     <div className="wk-root">
@@ -108,6 +159,13 @@ function WeeklyPlanner() {
                   </span>
                   <span>
                     <span className="wk-panel-count">{activeProgress.total > 0 ? `${activeProgress.done}/${activeProgress.total}` : ""}</span>
+                    <button
+                      className={`wk-reorder-btn${reorderMode ? " is-active" : ""}`}
+                      onClick={() => (reorderMode ? exitReorderMode() : enterReorderMode(activeList))}
+                      disabled={!reorderMode && activeList.length < 2}
+                    >
+                      {reorderMode ? "완료" : "순서변경"}
+                    </button>
                     <button className="wk-clear-btn" onClick={() => clearDay(selectedDay)} aria-label="이 요일 전체 삭제"><Trash2 size={13} /></button>
                   </span>
                 </div>
@@ -119,48 +177,72 @@ function WeeklyPlanner() {
 
               <div className="wk-list">
                 {activeList.length === 0 && <div className="wk-empty">할 일이 없어요</div>}
-                {activeList.map((t) => (
-                  <div key={t.id} className="wk-item">
-                    {editingId === t.id ? (
-                      <input
-                        className="wk-edit-input"
-                        value={editingText}
-                        autoFocus
-                        onChange={(e) => setEditingText(e.target.value)}
-                        onBlur={commitEdit}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
-                          if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
-                        }}
-                      />
-                    ) : (
-                      <>
-                        <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
-                          {t.done && <Check size={12} strokeWidth={3} />}
-                        </button>
-                        <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
-                        {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
-                        <button className="wk-edit-btn" onClick={() => startEdit(t)} aria-label="수정"><Pencil size={13} /></button>
-                        <button className={`wk-star-btn${t.important ? " is-active" : ""}`} onClick={() => toggleImportant(t.id)} aria-label="중요 표시">
-                          <Star size={14} fill={t.important ? "currentColor" : "none"} />
-                        </button>
-                        <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
-                      </>
-                    )}
-                  </div>
-                ))}
+                {reorderMode
+                  ? reorderIds.map((id) => {
+                      const t = taskById[id];
+                      if (!t) return null;
+                      return (
+                        <div
+                          key={id}
+                          ref={(el) => { rowRefs.current[id] = el; }}
+                          className={`wk-item wk-item-reorder${draggingId === id ? " is-dragging" : ""}`}
+                        >
+                          <button
+                            className="wk-grip-btn"
+                            onPointerDown={(e) => handleGripPointerDown(e, id)}
+                            onPointerMove={handleGripPointerMove}
+                            onPointerUp={handleGripPointerUp}
+                            onPointerCancel={handleGripPointerUp}
+                            aria-label="순서 변경"
+                          >
+                            <Grip size={15} />
+                          </button>
+                          <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
+                          {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
+                        </div>
+                      );
+                    })
+                  : activeList.map((t) => (
+                      <div key={t.id} className="wk-item">
+                        {editingId === t.id ? (
+                          <input
+                            className="wk-edit-input"
+                            value={editingText}
+                            autoFocus
+                            onChange={(e) => setEditingText(e.target.value)}
+                            onBlur={commitEdit}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
+                              if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
+                            }}
+                          />
+                        ) : (
+                          <>
+                            <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
+                              {t.done && <Check size={12} strokeWidth={3} />}
+                            </button>
+                            <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
+                            {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
+                            <button className="wk-edit-btn" onClick={() => startEdit(t)} aria-label="수정"><Pencil size={13} /></button>
+                            <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
+                          </>
+                        )}
+                      </div>
+                    ))}
               </div>
 
-              <div className="wk-add-row">
-                <input
-                  className="wk-add-input"
-                  placeholder="할 일을 입력하세요"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
-                />
-                <button className="wk-add-btn" onClick={handleAddTask} aria-label="할 일 추가"><Plus size={15} /></button>
-              </div>
+              {!reorderMode && (
+                <div className="wk-add-row">
+                  <input
+                    className="wk-add-input"
+                    placeholder="할 일을 입력하세요"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
+                  />
+                  <button className="wk-add-btn" onClick={handleAddTask} aria-label="할 일 추가"><Plus size={15} /></button>
+                </div>
+              )}
             </div>
           )}
         </>

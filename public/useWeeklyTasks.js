@@ -122,7 +122,6 @@ function useWeeklyTasks() {
     day: dayIdx,
     text: t.text,
     done: false,
-    important: t.important,
     createdAt: Date.now(),
     carriedOver: true,
     originDate: t.originDate || formatMD(addDays(sourceMonday, t.day)),
@@ -162,7 +161,7 @@ function useWeeklyTasks() {
   const addTask = (text, dayIdx) => {
     const trimmed = text.trim();
     if (!trimmed || dayIdx === null) return;
-    const next = [...tasks, { id: uid(), day: dayIdx, text: trimmed, done: false, important: false, createdAt: Date.now() }];
+    const next = [...tasks, { id: uid(), day: dayIdx, text: trimmed, done: false, createdAt: Date.now() }];
     persist(next);
   };
   const editTask = (id, text) => {
@@ -171,7 +170,6 @@ function useWeeklyTasks() {
     persist(tasks.map((t) => (t.id === id ? { ...t, text: trimmed } : t)));
   };
   const toggleDone = (id) => persist(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
-  const toggleImportant = (id) => persist(tasks.map((t) => (t.id === id ? { ...t, important: !t.important } : t)));
   const removeTask = (id) => persist(tasks.filter((t) => t.id !== id));
   const clearDay = (dayIdx) => {
     if (tasks.filter((t) => t.day === dayIdx).length === 0) return;
@@ -179,12 +177,21 @@ function useWeeklyTasks() {
       persist(tasks.filter((t) => t.day !== dayIdx));
     }
   };
+  // persists a manual order for one day's tasks — orderedIds is the full,
+  // final id sequence for that day after a drag; done-status grouping still
+  // wins in tasksFor's sort, so a done task dragged above an undone one will
+  // snap back down on the next render (by design, not a bug)
+  const reorderDay = (dayIdx, orderedIds) => {
+    const orderIndex = new Map(orderedIds.map((id, i) => [id, i]));
+    persist(tasks.map((t) => (t.day === dayIdx && orderIndex.has(t.id) ? { ...t, order: orderIndex.get(t.id) } : t)));
+  };
 
   const tasksFor = (dayIdx) =>
     tasks.filter((t) => t.day === dayIdx).sort((a, b) => {
       if (a.done !== b.done) return a.done ? 1 : -1;
-      if (a.important !== b.important) return a.important ? -1 : 1;
-      return a.createdAt - b.createdAt;
+      const ao = a.order ?? a.createdAt;
+      const bo = b.order ?? b.createdAt;
+      return ao - bo;
     });
   const progressFor = (dayIdx) => {
     const list = tasks.filter((t) => t.day === dayIdx);
@@ -203,7 +210,7 @@ function useWeeklyTasks() {
     connectionOk, loading,
     selectedDay, setSelectedDay,
     today, weekDates,
-    addTask, editTask, toggleDone, toggleImportant, removeTask, clearDay,
+    addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
     tasksFor, progressFor, weekProgress,
   };
 }
