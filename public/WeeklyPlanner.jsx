@@ -57,20 +57,25 @@ function WeeklyPlanner() {
     const y = e.clientY;
     let closestId = null;
     let closestDist = Infinity;
+    let closestCenter = 0;
     for (const id of reorderIds) {
+      if (id === draggingId) continue;
       const el = rowRefs.current[id];
       if (!el) continue;
       const rect = el.getBoundingClientRect();
-      const dist = Math.abs(rect.top + rect.height / 2 - y);
-      if (dist < closestDist) { closestDist = dist; closestId = id; }
+      const center = rect.top + rect.height / 2;
+      const dist = Math.abs(center - y);
+      if (dist < closestDist) { closestDist = dist; closestId = id; closestCenter = center; }
     }
-    if (closestId && closestId !== draggingId) {
-      setReorderIds((prev) => {
-        const next = prev.filter((id) => id !== draggingId);
-        next.splice(next.indexOf(closestId), 0, draggingId);
-        return next;
-      });
-    }
+    if (!closestId) return;
+    setReorderIds((prev) => {
+      const next = prev.filter((id) => id !== draggingId);
+      // above the closest row's center -> insert before it; below -> after it
+      // (otherwise there's no way to drag something to become the new last item)
+      const idx = next.indexOf(closestId) + (y > closestCenter ? 1 : 0);
+      next.splice(idx, 0, draggingId);
+      return next;
+    });
   };
   const handleGripPointerUp = () => {
     if (draggingId === null) return;
@@ -186,17 +191,13 @@ function WeeklyPlanner() {
                           key={id}
                           ref={(el) => { rowRefs.current[id] = el; }}
                           className={`wk-item wk-item-reorder${draggingId === id ? " is-dragging" : ""}`}
+                          onPointerDown={(e) => handleGripPointerDown(e, id)}
+                          onPointerMove={handleGripPointerMove}
+                          onPointerUp={handleGripPointerUp}
+                          onPointerCancel={handleGripPointerUp}
+                          aria-label="순서 변경"
                         >
-                          <button
-                            className="wk-grip-btn"
-                            onPointerDown={(e) => handleGripPointerDown(e, id)}
-                            onPointerMove={handleGripPointerMove}
-                            onPointerUp={handleGripPointerUp}
-                            onPointerCancel={handleGripPointerUp}
-                            aria-label="순서 변경"
-                          >
-                            <Grip size={15} />
-                          </button>
+                          <span className="wk-grip-btn"><Grip size={15} /></span>
                           <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
                           {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
                         </div>

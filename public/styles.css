@@ -131,10 +131,10 @@ html, body {
 .wk-reorder-btn.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .wk-reorder-btn:disabled { opacity: .35; cursor: default; }
 
-.wk-item-reorder { align-items: center; background: var(--surface-soft); touch-action: none; }
-.wk-item-reorder.is-dragging { background: var(--accent-soft); }
-.wk-grip-btn { background: transparent; border: none; padding: 2px 4px; flex: none; color: var(--ink-faint); cursor: grab; touch-action: none; }
-.wk-item-reorder.is-dragging .wk-grip-btn { color: var(--accent); cursor: grabbing; }
+.wk-item-reorder { align-items: center; background: var(--surface-soft); touch-action: none; cursor: grab; }
+.wk-item-reorder.is-dragging { background: var(--accent-soft); cursor: grabbing; }
+.wk-grip-btn { display: flex; padding: 2px 4px; flex: none; color: var(--ink-faint); }
+.wk-item-reorder.is-dragging .wk-grip-btn { color: var(--accent); }
 
 .wk-add-row { display: flex; align-items: center; gap: 8px; padding: 10px 14px 16px; border-top: 1px solid var(--line); margin-top: 6px; }
 .wk-add-input { flex: 1; border: none; background: transparent; font-size: 14px; color: var(--ink); padding: 5px 2px; }
