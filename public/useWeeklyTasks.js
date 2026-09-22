@@ -226,6 +226,15 @@ function useWeeklyTasks() {
         : t
     ));
   };
+  const editChecklistItem = (taskId, itemId, text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    persist(tasks.map((t) =>
+      t.id === taskId
+        ? { ...t, checklist: (t.checklist || []).map((c) => (c.id === itemId ? { ...c, text: trimmed } : c)) }
+        : t
+    ));
+  };
 
   const tasksFor = (dayIdx) =>
     tasks.filter((t) => t.day === dayIdx).sort((a, b) => {
@@ -252,7 +261,7 @@ function useWeeklyTasks() {
     selectedDay, setSelectedDay,
     today, weekDates,
     addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
-    addChecklistItem, toggleChecklistItem, removeChecklistItem,
+    addChecklistItem, toggleChecklistItem, removeChecklistItem, editChecklistItem,
     tasksFor, progressFor, weekProgress,
   };
 }
