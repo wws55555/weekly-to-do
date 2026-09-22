@@ -3,11 +3,14 @@ name: run-android
 description: Build, install, launch, and drive the Weekly Planner Android app (Capacitor shell around public/index.html) on an emulator. Use when asked to run the app, start the Android app, build the APK, take a screenshot of the app, or interact with the running app.
 ---
 
-This is a Capacitor app: a React+Firebase web page (`public/index.html`,
-the sole source file — there is no separate root copy) bundled into a
-native Android shell (`android/`). It is driven via `adb` — no custom
-test framework needed. All commands below use the driver script at
-`.claude/skills/run-android/driver.sh`, run from the repo root.
+This is a Capacitor app: a React+Firebase web page — plain files under
+`public/` (`index.html`, `styles.css`, `dateUtils.js`, `firestoreApi.js`,
+`useWeeklyTasks.js`, `icons.jsx`, `WeeklyPlanner.jsx`; no bundler, no
+build step, see the project's `CLAUDE.md` for how they fit together)
+— bundled into a native Android shell (`android/`). It is driven via
+`adb` — no custom test framework needed. All commands below use the
+driver script at `.claude/skills/run-android/driver.sh`, run from the
+repo root.
 
 ## Prerequisites
 
@@ -20,9 +23,9 @@ Gradle. The driver auto-detects the SDK dir from `$ANDROID_SDK_ROOT` /
 
 ## Build
 
-Only needed after editing the web code (`public/index.html`) or native
-code. Editing `public/index.html` requires a Capacitor sync first so
-the bundled Android assets pick up the change:
+Only needed after editing the web code (anything under `public/`) or
+native code. Editing web code requires a Capacitor sync first so the
+bundled Android assets pick up the change:
 
 ```bash
 .claude/skills/run-android/driver.sh sync    # npx cap sync android
