@@ -5,12 +5,23 @@ description: Build, install, launch, and drive the Weekly Planner Android app (C
 
 This is a Capacitor app: a React+Firebase web page — plain files under
 `public/` (`index.html`, `styles.css`, `dateUtils.js`, `firestoreApi.js`,
-`useWeeklyTasks.js`, `icons.jsx`, `WeeklyPlanner.jsx`; no bundler, no
-build step, see the project's `CLAUDE.md` for how they fit together)
-— bundled into a native Android shell (`android/`). It is driven via
-`adb` — no custom test framework needed. All commands below use the
-driver script at `.claude/skills/run-android/driver.sh`, run from the
-repo root.
+`useWeeklyTasks.js`, `icons.jsx`, `AuthScreen.jsx`, `WeeklyPlanner.jsx`;
+no bundler, no build step, see the project's `CLAUDE.md` for how they
+fit together) — bundled into a native Android shell (`android/`). It
+is driven via `adb` — no custom test framework needed. All commands
+below use the driver script at `.claude/skills/run-android/driver.sh`,
+run from the repo root.
+
+Auth is per-account email/password (Firebase Auth) — a fresh install
+or a signed-out session shows a login/signup form (`AuthScreen.jsx`)
+before any of the planner UI, so driving the app from scratch means
+signing in/up first. `driver.sh text` handles ASCII email/password
+fine (no Hangul needed for auth). **Take a screenshot after every tap
+near an input field before typing or tapping again** — the on-screen
+keyboard shifts the layout up, so a second blind tap at
+previously-recorded coordinates easily lands on the wrong element
+(e.g. hits the sign-in/sign-up mode toggle instead of the password
+field).
 
 ## Prerequisites
 

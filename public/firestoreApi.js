@@ -1,6 +1,9 @@
 // Firebase/Firestore access only — no React here. Everything the app does
 // against the backend (auth, reading/writing a week's tasks, the cross-week
 // carry-over transaction) is exposed through the WeeklyPlannerAPI object.
+//
+// Each signed-in account owns its own private data at
+// users/{uid}/weeklyPlanner/{weekKey} — nothing is shared between accounts.
 var WeeklyPlannerAPI = (function () {
   var firebaseConfig = {
     apiKey: "AIzaSyCjfiJ54a7BGn4FiEzt-0x_qbNWNWOa7Zs",
@@ -26,43 +29,49 @@ var WeeklyPlannerAPI = (function () {
     showFallback("Firebase 초기화 중 오류: " + e.message);
   }
 
-  function weekDoc(weekKey) {
-    return firebase.firestore().collection("weeklyPlanner").doc(weekKey);
+  function weekDoc(uid, weekKey) {
+    return firebase.firestore().collection("users").doc(uid).collection("weeklyPlanner").doc(weekKey);
   }
 
-  // calls onSignedIn(uid) once signed in (anonymously, if needed); returns an unsubscribe fn
-  function watchAuth(onSignedIn, onError) {
+  // reports the current signed-in user (or null) and every change after;
+  // does NOT sign anyone in automatically. Returns an unsubscribe fn.
+  function watchAuthState(onChange) {
     if (!window.firebase || !firebaseReady) return function () {};
-    var auth = firebase.auth();
-    return auth.onAuthStateChanged(function (user) {
-      if (user) {
-        onSignedIn(user.uid);
-      } else {
-        auth.signInAnonymously().catch(onError);
-      }
-    });
+    return firebase.auth().onAuthStateChanged(onChange);
+  }
+
+  function signUp(email, password) {
+    return firebase.auth().createUserWithEmailAndPassword(email, password);
+  }
+
+  function signIn(email, password) {
+    return firebase.auth().signInWithEmailAndPassword(email, password);
+  }
+
+  function signOutUser() {
+    return firebase.auth().signOut();
   }
 
   // live-subscribes to a week's tasks array; returns an unsubscribe fn
-  function watchWeek(weekKey, onTasks, onError) {
-    return weekDoc(weekKey).onSnapshot(function (docSnap) {
+  function watchWeek(uid, weekKey, onTasks, onError) {
+    return weekDoc(uid, weekKey).onSnapshot(function (docSnap) {
       var data = docSnap.exists ? docSnap.data() : null;
       onTasks(data && Array.isArray(data.tasks) ? data.tasks : []);
     }, onError);
   }
 
-  function writeWeek(weekKey, tasks) {
-    return weekDoc(weekKey).set({ tasks: tasks, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  function writeWeek(uid, weekKey, tasks) {
+    return weekDoc(uid, weekKey).set({ tasks: tasks, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
   }
 
-  // reads this week's + last week's docs in one transaction and lets
-  // computeUpdate(currentTasks, prevTasks) decide what to write to each side;
-  // computeUpdate returns null to skip the write entirely, or
-  // { nextCurrent, markedPrev } to commit both docs atomically
-  function runCarryOverFromPrevWeek(currentKey, prevKey, computeUpdate) {
+  // reads this week's + last week's docs (both under the same uid) in one
+  // transaction and lets computeUpdate(currentTasks, prevTasks) decide what
+  // to write to each side; computeUpdate returns null to skip the write
+  // entirely, or { nextCurrent, markedPrev } to commit both docs atomically
+  function runCarryOverFromPrevWeek(uid, currentKey, prevKey, computeUpdate) {
     var db = firebase.firestore();
-    var currentRef = weekDoc(currentKey);
-    var prevRef = weekDoc(prevKey);
+    var currentRef = weekDoc(uid, currentKey);
+    var prevRef = weekDoc(uid, prevKey);
 
     return db.runTransaction(async function (tx) {
       var snaps = await Promise.all([tx.get(currentRef), tx.get(prevRef)]);
@@ -81,7 +90,10 @@ var WeeklyPlannerAPI = (function () {
 
   return {
     get firebaseReady() { return firebaseReady; },
-    watchAuth: watchAuth,
+    watchAuthState: watchAuthState,
+    signUp: signUp,
+    signIn: signIn,
+    signOutUser: signOutUser,
     watchWeek: watchWeek,
     writeWeek: writeWeek,
     runCarryOverFromPrevWeek: runCarryOverFromPrevWeek

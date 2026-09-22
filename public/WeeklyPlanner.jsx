@@ -3,6 +3,7 @@
 function WeeklyPlanner() {
   const [inputText, setInputText] = React.useState("");
   const {
+    authUser, authChecked, authError, authPending, signUp, signIn, signOut,
     weekOffset, setWeekOffset,
     connectionOk, loading,
     selectedDay, setSelectedDay,
@@ -16,6 +17,14 @@ function WeeklyPlanner() {
     setInputText("");
   };
 
+  if (!authChecked) {
+    return <div className="wk-root"><div className="wk-loading">불러오는 중…</div></div>;
+  }
+
+  if (!authUser) {
+    return <AuthScreen onSignIn={signIn} onSignUp={signUp} error={authError} pending={authPending} />;
+  }
+
   const rangeLabel = `${formatMD(weekDates[0])} – ${formatMD(weekDates[6])}`;
   const isThisWeek = weekOffset === 0;
   const activeList = selectedDay === null ? [] : tasksFor(selectedDay);
@@ -26,12 +35,13 @@ function WeeklyPlanner() {
       <div className="wk-header">
         <div>
           <h1 className="wk-title">위클리 플래너</h1>
-          <p className="wk-subtitle">
-            <Users size={12} style={{ verticalAlign: "-2px", marginRight: 4 }} />
-            함께 보는 주간 할 일 목록
-          </p>
+          <p className="wk-subtitle">나만의 주간 할 일 목록</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+          <div className="wk-account">
+            <span className="wk-account-email">{authUser.email}</span>
+            <button className="wk-logout-btn" onClick={signOut}>로그아웃</button>
+          </div>
           <div className="wk-nav">
             <button className="wk-nav-btn" onClick={() => setWeekOffset((w) => w - 1)} aria-label="이전 주"><ChevronLeft size={16} /></button>
             <span className="wk-range">{rangeLabel}</span>

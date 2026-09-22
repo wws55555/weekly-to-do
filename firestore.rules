@@ -1,0 +1,14 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Each signed-in account owns its own weekly-planner data. No one else —
+    // not even another signed-in user — can read or write it.
+    match /users/{uid}/weeklyPlanner/{weekKey} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Everything else (including the old shared weeklyPlanner/{weekKey}
+    // collection from before per-account data existed) is denied by default.
+  }
+}
