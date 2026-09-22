@@ -118,15 +118,23 @@ html, body {
 
 .wk-carried-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: var(--gold); background: var(--gold-soft); padding: 1px 6px; border-radius: 999px; flex: none; margin-top: 2px; }
 
-.wk-star-btn, .wk-del-btn, .wk-edit-btn { background: transparent; border: none; padding: 2px; flex: none; color: var(--ink-faint); border-radius: 5px; opacity: 0; transition: opacity .12s ease, color .12s ease; }
-.wk-item:hover .wk-star-btn, .wk-item:hover .wk-del-btn, .wk-item:hover .wk-edit-btn, .wk-star-btn.is-active { opacity: 1; }
-.wk-star-btn.is-active { color: var(--gold); }
-.wk-star-btn:hover { color: var(--gold); }
+.wk-del-btn, .wk-edit-btn { background: transparent; border: none; padding: 2px; flex: none; color: var(--ink-faint); border-radius: 5px; opacity: 0; transition: opacity .12s ease, color .12s ease; }
+.wk-item:hover .wk-del-btn, .wk-item:hover .wk-edit-btn { opacity: 1; }
 .wk-edit-btn:hover { color: var(--accent); }
 .wk-del-btn:hover { color: var(--danger); }
 
 .wk-edit-input { flex: 1; font-size: 14px; line-height: 1.5; color: var(--ink); border: none; border-bottom: 1px solid var(--accent); background: transparent; padding: 1px 0 2px; font-family: inherit; }
 .wk-edit-input:focus-visible { outline: none; }
+
+.wk-reorder-btn { font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface); margin: 0 6px; }
+.wk-reorder-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.wk-reorder-btn.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wk-reorder-btn:disabled { opacity: .35; cursor: default; }
+
+.wk-item-reorder { align-items: center; background: var(--surface-soft); touch-action: none; }
+.wk-item-reorder.is-dragging { background: var(--accent-soft); }
+.wk-grip-btn { background: transparent; border: none; padding: 2px 4px; flex: none; color: var(--ink-faint); cursor: grab; touch-action: none; }
+.wk-item-reorder.is-dragging .wk-grip-btn { color: var(--accent); cursor: grabbing; }
 
 .wk-add-row { display: flex; align-items: center; gap: 8px; padding: 10px 14px 16px; border-top: 1px solid var(--line); margin-top: 6px; }
 .wk-add-input { flex: 1; border: none; background: transparent; font-size: 14px; color: var(--ink); padding: 5px 2px; }
