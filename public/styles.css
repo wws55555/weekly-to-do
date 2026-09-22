@@ -118,7 +118,6 @@ html, body {
 
 .wk-checklist-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 999px; flex: none; margin-top: 2px; }
 
-.wk-checklist { margin: 0 8px 6px 44px; padding: 6px 0 6px 10px; border-left: 2px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
 .wk-checklist-empty { color: var(--ink-faint); font-size: 12px; padding: 2px 0; }
 .wk-checklist-item { display: flex; align-items: center; gap: 7px; }
 .wk-checklist-check { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--ink-faint); background: transparent; flex: none; display: flex; align-items: center; justify-content: center; padding: 0; }
@@ -133,6 +132,15 @@ html, body {
 .wk-checklist-input::placeholder { color: var(--ink-faint); }
 .wk-checklist-add-btn { width: 20px; height: 20px; border-radius: 6px; border: none; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none; }
 .wk-checklist-add-btn:hover { background: var(--accent); color: #fff; }
+
+.wk-modal-backdrop { position: fixed; inset: 0; background: rgba(31,42,36,.45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+.wk-modal { width: 100%; max-width: 380px; max-height: 80vh; background: var(--surface); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,.2); }
+.wk-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+.wk-modal-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; line-height: 1.4; word-break: break-word; }
+.wk-modal-close { background: transparent; border: none; padding: 4px; color: var(--ink-faint); border-radius: 6px; flex: none; }
+.wk-modal-close:hover { color: var(--danger); }
+.wk-modal-body { padding: 12px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.wk-modal-footer { padding: 10px 16px 16px; border-top: 1px solid var(--line); }
 
 .wk-edit-input { flex: 1; font-size: 14px; line-height: 1.5; color: var(--ink); border: none; border-bottom: 1px solid var(--accent); background: transparent; padding: 1px 0 2px; font-family: inherit; }
 .wk-edit-input:focus-visible { outline: none; }
