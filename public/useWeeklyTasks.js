@@ -3,13 +3,31 @@
 // this hook returns.
 const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
+function authErrorMessage(e) {
+  switch (e && e.code) {
+    case "auth/email-already-in-use": return "이미 가입된 이메일이에요.";
+    case "auth/invalid-email": return "이메일 형식이 올바르지 않아요.";
+    case "auth/weak-password": return "비밀번호는 6자 이상이어야 해요.";
+    case "auth/user-not-found": return "가입되지 않은 이메일이에요.";
+    case "auth/wrong-password": return "비밀번호가 틀렸어요.";
+    case "auth/invalid-credential": return "이메일 또는 비밀번호가 올바르지 않아요.";
+    case "auth/too-many-requests": return "너무 여러 번 시도했어요. 잠시 후 다시 시도해주세요.";
+    case "auth/operation-not-allowed": return "이메일/비밀번호 로그인이 아직 켜져있지 않아요. Firebase 콘솔에서 설정해주세요.";
+    default: return (e && e.message) || "알 수 없는 오류가 발생했어요.";
+  }
+}
+
 function useWeeklyTasks() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [tasks, setTasks] = useState([]);
   const [connectionOk, setConnectionOk] = useState(true);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(null);
-  const [authUid, setAuthUid] = useState(null);
+
+  const [authUser, setAuthUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authError, setAuthError] = useState(null);
+  const [authPending, setAuthPending] = useState(false);
 
   const [today, setToday] = useState(() => new Date());
   const monday = useMemo(() => addDays(getMonday(today), weekOffset * 7), [today, weekOffset]);
@@ -34,27 +52,43 @@ function useWeeklyTasks() {
     };
   }, []);
 
-  // sign in anonymously once
+  // just observe auth state — no automatic sign-in of any kind
   useEffect(() => {
-    const unsub = WeeklyPlannerAPI.watchAuth(
-      (uid) => setAuthUid(uid),
-      (e) => {
-        setConnectionOk(false);
-        showFallback(
-          "로그인에 실패했어요: " + e.message +
-          "\nFirebase 콘솔에서 Authentication > 로그인 방법 > 익명 을 사용 설정했는지 확인해주세요."
-        );
-      }
-    );
+    const unsub = WeeklyPlannerAPI.watchAuthState((user) => {
+      setAuthUser(user);
+      setAuthChecked(true);
+    });
     return unsub;
+  }, []);
+
+  const signUp = useCallback((email, password) => {
+    setAuthError(null);
+    setAuthPending(true);
+    return WeeklyPlannerAPI.signUp(email, password)
+      .catch((e) => { setAuthError(authErrorMessage(e)); throw e; })
+      .finally(() => setAuthPending(false));
+  }, []);
+
+  const signIn = useCallback((email, password) => {
+    setAuthError(null);
+    setAuthPending(true);
+    return WeeklyPlannerAPI.signIn(email, password)
+      .catch((e) => { setAuthError(authErrorMessage(e)); throw e; })
+      .finally(() => setAuthPending(false));
+  }, []);
+
+  const signOut = useCallback(() => {
+    prevWeekCarryRanForRef.current = null;
+    return WeeklyPlannerAPI.signOutUser();
   }, []);
 
   // subscribe to this week's document, live
   useEffect(() => {
-    if (!authUid) return;
+    if (!authUser) return;
     setLoading(true);
     setSelectedDay(todayIndexInWeek >= 0 ? todayIndexInWeek : 0);
     const unsub = WeeklyPlannerAPI.watchWeek(
+      authUser.uid,
       weekKey,
       (nextTasks) => {
         setTasks(nextTasks);
@@ -69,15 +103,16 @@ function useWeeklyTasks() {
     );
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekKey, authUid]);
+  }, [weekKey, authUser]);
 
   const persist = useCallback((next) => {
     setTasks(next); // optimistic UI update; onSnapshot will confirm
-    WeeklyPlannerAPI.writeWeek(weekKey, next).catch((e) => {
+    if (!authUser) return;
+    WeeklyPlannerAPI.writeWeek(authUser.uid, weekKey, next).catch((e) => {
       console.error(e);
       setConnectionOk(false);
     });
-  }, [weekKey]);
+  }, [weekKey, authUser]);
 
   // carry over incomplete tasks from earlier days in this week to today, as
   // independent copies — the original stays on its own day (marked so it
@@ -106,14 +141,14 @@ function useWeeklyTasks() {
   // carry over incomplete tasks left in last week's document, once per week view
   useEffect(() => {
     if (weekOffset !== 0 || loading || todayIndexInWeek < 0) return;
-    if (!authUid) return;
+    if (!authUser) return;
     if (prevWeekCarryRanForRef.current === weekKey) return;
     prevWeekCarryRanForRef.current = weekKey;
 
     const prevMonday = addDays(monday, -7);
     const prevKey = toKey(prevMonday);
 
-    WeeklyPlannerAPI.runCarryOverFromPrevWeek(weekKey, prevKey, (currentTasks, prevTasks) => {
+    WeeklyPlannerAPI.runCarryOverFromPrevWeek(authUser.uid, weekKey, prevKey, (currentTasks, prevTasks) => {
       const toForward = prevTasks.filter((t) => !t.done && !t.forwarded);
       if (toForward.length === 0) return null;
 
@@ -122,7 +157,7 @@ function useWeeklyTasks() {
       const copies = toForward.map((t) => makeCarriedCopy(t, todayIndexInWeek, prevMonday));
       return { nextCurrent: [...currentTasks, ...copies], markedPrev };
     }).catch((e) => console.error("carry-over (prev week) failed", e));
-  }, [weekOffset, loading, todayIndexInWeek, authUid, weekKey, monday]);
+  }, [weekOffset, loading, todayIndexInWeek, authUser, weekKey, monday]);
 
   const addTask = (text, dayIdx) => {
     const trimmed = text.trim();
@@ -135,7 +170,7 @@ function useWeeklyTasks() {
   const removeTask = (id) => persist(tasks.filter((t) => t.id !== id));
   const clearDay = (dayIdx) => {
     if (tasks.filter((t) => t.day === dayIdx).length === 0) return;
-    if (window.confirm("이 요일의 할 일을 모두 지울까요? (모두에게 함께 삭제됩니다)")) {
+    if (window.confirm("이 요일의 할 일을 모두 지울까요?")) {
       persist(tasks.filter((t) => t.day !== dayIdx));
     }
   };
@@ -158,6 +193,7 @@ function useWeeklyTasks() {
   }, [tasks]);
 
   return {
+    authUser, authChecked, authError, authPending, signUp, signIn, signOut,
     weekOffset, setWeekOffset,
     connectionOk, loading,
     selectedDay, setSelectedDay,
