@@ -9,8 +9,11 @@ function WeeklyPlanner() {
   const [draggingId, setDraggingId] = React.useState(null);
   const [checklistOpenId, setChecklistOpenId] = React.useState(null);
   const [checklistInput, setChecklistInput] = React.useState("");
+  const [editingChecklistItemId, setEditingChecklistItemId] = React.useState(null);
+  const [editingChecklistText, setEditingChecklistText] = React.useState("");
   const rowRefs = React.useRef({});
   const dragPointerId = React.useRef(null);
+  const suppressPopRef = React.useRef(false);
   const {
     authUser, authChecked, authError, authPending, signUp, signIn, signOut,
     weekOffset, setWeekOffset,
@@ -18,13 +21,37 @@ function WeeklyPlanner() {
     selectedDay, setSelectedDay,
     today, weekDates,
     addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
-    addChecklistItem, toggleChecklistItem, removeChecklistItem,
+    addChecklistItem, toggleChecklistItem, removeChecklistItem, editChecklistItem,
     tasksFor, progressFor,
   } = useWeeklyTasks();
 
   // leaving the day (or the whole day's list) mid-reorder would leave stale
   // drag/checklist state around, so just drop out of reorder mode
-  React.useEffect(() => { setReorderMode(false); setDraggingId(null); setChecklistOpenId(null); }, [selectedDay]);
+  React.useEffect(() => {
+    setReorderMode(false);
+    setDraggingId(null);
+    setChecklistOpenId(null);
+    setEditingChecklistItemId(null);
+  }, [selectedDay]);
+
+  // while the checklist modal is open, push a history entry so the phone's
+  // hardware back button closes just the modal (popstate) instead of the
+  // WebView having no history to go back to and exiting the whole app;
+  // closing the modal any other way (X, backdrop) pops that entry back off
+  React.useEffect(() => {
+    if (!checklistOpenId) return;
+    window.history.pushState({ wkModal: true }, "");
+    const onPopState = () => {
+      suppressPopRef.current = true;
+      setChecklistOpenId(null);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (!suppressPopRef.current) window.history.back();
+      suppressPopRef.current = false;
+    };
+  }, [checklistOpenId]);
 
   const handleAddTask = () => {
     addTask(inputText, selectedDay);
@@ -44,11 +71,25 @@ function WeeklyPlanner() {
   const toggleChecklistOpen = (id) => {
     setChecklistOpenId((prev) => (prev === id ? null : id));
     setChecklistInput("");
+    setEditingChecklistItemId(null);
+  };
+  const closeChecklistModal = () => {
+    setChecklistOpenId(null);
+    setEditingChecklistItemId(null);
   };
   const handleAddChecklistItem = (taskId) => {
     addChecklistItem(taskId, checklistInput);
     setChecklistInput("");
   };
+  const startEditChecklistItem = (item) => {
+    setEditingChecklistItemId(item.id);
+    setEditingChecklistText(item.text);
+  };
+  const commitEditChecklistItem = (taskId) => {
+    if (editingChecklistItemId) editChecklistItem(taskId, editingChecklistItemId, editingChecklistText);
+    setEditingChecklistItemId(null);
+  };
+  const cancelEditChecklistItem = () => setEditingChecklistItemId(null);
 
   const enterReorderMode = (list) => {
     setChecklistOpenId(null);
@@ -268,27 +309,46 @@ function WeeklyPlanner() {
       {!connectionOk && <div className="wk-warning">서버와 연결이 원활하지 않아요. 변경사항이 저장되지 않을 수 있어요.</div>}
 
       {checklistTask && (
-        <div className="wk-modal-backdrop" onClick={() => setChecklistOpenId(null)}>
+        <div className="wk-modal-backdrop" onClick={closeChecklistModal}>
           <div className="wk-modal" onClick={(e) => e.stopPropagation()}>
             <div className="wk-modal-head">
               <span className="wk-modal-title">{checklistTask.text}</span>
-              <button className="wk-modal-close" onClick={() => setChecklistOpenId(null)} aria-label="닫기"><X size={16} /></button>
+              <button className="wk-modal-close" onClick={closeChecklistModal} aria-label="닫기"><X size={16} /></button>
             </div>
             <div className="wk-modal-body">
               {checklistTaskItems.length === 0 && <div className="wk-checklist-empty">세부 항목이 없어요</div>}
               {checklistTaskItems.map((c) => (
                 <div key={c.id} className="wk-checklist-item">
-                  <button
-                    className={`wk-checklist-check${c.done ? " is-done" : ""}`}
-                    onClick={() => toggleChecklistItem(checklistTask.id, c.id)}
-                    aria-label={c.done ? "완료 취소" : "완료로 표시"}
-                  >
-                    {c.done && <Check size={10} strokeWidth={3} />}
-                  </button>
-                  <span className={`wk-checklist-text${c.done ? " is-done" : ""}`}>{c.text}</span>
-                  <button className="wk-checklist-del" onClick={() => removeChecklistItem(checklistTask.id, c.id)} aria-label="세부 항목 삭제">
-                    <X size={11} />
-                  </button>
+                  {editingChecklistItemId === c.id ? (
+                    <input
+                      className="wk-checklist-edit-input"
+                      value={editingChecklistText}
+                      autoFocus
+                      onChange={(e) => setEditingChecklistText(e.target.value)}
+                      onBlur={() => commitEditChecklistItem(checklistTask.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); commitEditChecklistItem(checklistTask.id); }
+                        if (e.key === "Escape") { e.preventDefault(); cancelEditChecklistItem(); }
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <button
+                        className={`wk-checklist-check${c.done ? " is-done" : ""}`}
+                        onClick={() => toggleChecklistItem(checklistTask.id, c.id)}
+                        aria-label={c.done ? "완료 취소" : "완료로 표시"}
+                      >
+                        {c.done && <Check size={10} strokeWidth={3} />}
+                      </button>
+                      <span className={`wk-checklist-text${c.done ? " is-done" : ""}`}>{c.text}</span>
+                      <button className="wk-checklist-edit-btn" onClick={() => startEditChecklistItem(c)} aria-label="세부 항목 수정">
+                        <Pencil size={11} />
+                      </button>
+                      <button className="wk-checklist-del" onClick={() => removeChecklistItem(checklistTask.id, c.id)} aria-label="세부 항목 삭제">
+                        <X size={11} />
+                      </button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
