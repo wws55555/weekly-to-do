@@ -13,6 +13,7 @@ function WeeklyPlanner() {
   const [editingChecklistText, setEditingChecklistText] = React.useState("");
   const rowRefs = React.useRef({});
   const dragPointerId = React.useRef(null);
+  const suppressPopRef = React.useRef(false);
   const {
     authUser, authChecked, authError, authPending, signUp, signIn, signOut,
     weekOffset, setWeekOffset,
@@ -32,6 +33,25 @@ function WeeklyPlanner() {
     setChecklistOpenId(null);
     setEditingChecklistItemId(null);
   }, [selectedDay]);
+
+  // while the checklist modal is open, push a history entry so the phone's
+  // hardware back button closes just the modal (popstate) instead of the
+  // WebView having no history to go back to and exiting the whole app;
+  // closing the modal any other way (X, backdrop) pops that entry back off
+  React.useEffect(() => {
+    if (!checklistOpenId) return;
+    window.history.pushState({ wkModal: true }, "");
+    const onPopState = () => {
+      suppressPopRef.current = true;
+      setChecklistOpenId(null);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (!suppressPopRef.current) window.history.back();
+      suppressPopRef.current = false;
+    };
+  }, [checklistOpenId]);
 
   const handleAddTask = () => {
     addTask(inputText, selectedDay);
