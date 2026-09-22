@@ -3,11 +3,14 @@ name: run-android
 description: Build, install, launch, and drive the Weekly Planner Android app (Capacitor shell around public/index.html) on an emulator. Use when asked to run the app, start the Android app, build the APK, take a screenshot of the app, or interact with the running app.
 ---
 
-This is a Capacitor app: a React+Firebase web page (`index.html` /
-`public/index.html`) bundled into a native Android shell (`android/`).
-It is driven via `adb` — no custom test framework needed. All commands
-below use the driver script at
-`.claude/skills/run-android/driver.sh`, run from the repo root.
+This is a Capacitor app: a React+Firebase web page — plain files under
+`public/` (`index.html`, `styles.css`, `dateUtils.js`, `firestoreApi.js`,
+`useWeeklyTasks.js`, `icons.jsx`, `WeeklyPlanner.jsx`; no bundler, no
+build step, see the project's `CLAUDE.md` for how they fit together)
+— bundled into a native Android shell (`android/`). It is driven via
+`adb` — no custom test framework needed. All commands below use the
+driver script at `.claude/skills/run-android/driver.sh`, run from the
+repo root.
 
 ## Prerequisites
 
@@ -20,12 +23,11 @@ Gradle. The driver auto-detects the SDK dir from `$ANDROID_SDK_ROOT` /
 
 ## Build
 
-Only needed after editing the web code (`index.html`) or native code.
-Editing `index.html` requires a Capacitor sync first so
-`public/index.html` and the bundled Android assets pick up the change:
+Only needed after editing the web code (anything under `public/`) or
+native code. Editing web code requires a Capacitor sync first so the
+bundled Android assets pick up the change:
 
 ```bash
-cp index.html public/index.html   # firebase.json's predeploy step
 .claude/skills/run-android/driver.sh sync    # npx cap sync android
 .claude/skills/run-android/driver.sh build   # ./gradlew assembleDebug
 ```
@@ -132,6 +134,24 @@ screenshot.
   Activity not started, intent has been delivered to currently
   running top-most instance.` — harmless, the focus check below it
   still confirms the app is up.
+- **Tapping a text input can pop up the emulator's "Try out your
+  stylus" tutorial**, an Android system-level onboarding overlay on
+  stylus-enabled AVDs (e.g. `Pixel_9`) — nothing to do with this app,
+  it can appear the first time (and sometimes again) any `EditText`
+  gets focus. It sits on top of the app and eats subsequent taps
+  meant for the app underneath (e.g. a tap aimed at "Cancel" can land
+  on the tutorial's own "Select" tab instead). A single `input
+  keyevent 4` (back) can dismiss the overlay *and* exit the app to
+  the home screen in one go — if that happens, `driver.sh launch`
+  again rather than pressing back repeatedly to "get further out."
+  Screenshot after tapping any input field to confirm you're still in
+  the app before continuing. When the goal is just to verify data
+  changes (not the exact tap-to-add UI flow), it's more reliable to
+  skip the on-screen keyboard entirely and seed/clean up test tasks
+  directly in Firestore with a small Node script using the `firebase`
+  npm package (sign in anonymously, read-modify-write the
+  `weeklyPlanner/{weekKey}` doc's `tasks` array) — this also sidesteps
+  `adb shell input text` not being able to type Hangul at all.
 
 ## Troubleshooting
 
