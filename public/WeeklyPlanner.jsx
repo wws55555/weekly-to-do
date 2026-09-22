@@ -110,6 +110,8 @@ function WeeklyPlanner() {
   const activeList = selectedDay === null ? [] : tasksFor(selectedDay);
   const activeProgress = selectedDay === null ? { done: 0, total: 0 } : progressFor(selectedDay);
   const taskById = Object.fromEntries(activeList.map((t) => [t.id, t]));
+  const checklistTask = checklistOpenId ? taskById[checklistOpenId] : null;
+  const checklistTaskItems = checklistTask ? (checklistTask.checklist || []) : [];
 
   return (
     <div className="wk-root">
@@ -213,68 +215,33 @@ function WeeklyPlanner() {
                       const checklist = t.checklist || [];
                       const checklistDone = checklist.filter((c) => c.done).length;
                       return (
-                        <div key={t.id} className="wk-item-group">
-                          <div className="wk-item">
-                            {editingId === t.id ? (
-                              <input
-                                className="wk-edit-input"
-                                value={editingText}
-                                autoFocus
-                                onChange={(e) => setEditingText(e.target.value)}
-                                onBlur={commitEdit}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
-                                  if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
-                                }}
-                              />
-                            ) : (
-                              <>
-                                <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
-                                  {t.done && <Check size={12} strokeWidth={3} />}
-                                </button>
-                                <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
-                                {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
-                                {checklist.length > 0 && <span className="wk-checklist-badge">{checklistDone}/{checklist.length}</span>}
-                                <button className={`wk-checklist-btn${checklistOpenId === t.id ? " is-active" : ""}`} onClick={() => toggleChecklistOpen(t.id)} aria-label="세부 체크리스트">
-                                  <ListChecks size={13} />
-                                </button>
-                                <button className="wk-edit-btn" onClick={() => startEdit(t)} aria-label="수정"><Pencil size={13} /></button>
-                                <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
-                              </>
-                            )}
-                          </div>
-
-                          {checklistOpenId === t.id && (
-                            <div className="wk-checklist">
-                              {checklist.length === 0 && <div className="wk-checklist-empty">세부 항목이 없어요</div>}
-                              {checklist.map((c) => (
-                                <div key={c.id} className="wk-checklist-item">
-                                  <button
-                                    className={`wk-checklist-check${c.done ? " is-done" : ""}`}
-                                    onClick={() => toggleChecklistItem(t.id, c.id)}
-                                    aria-label={c.done ? "완료 취소" : "완료로 표시"}
-                                  >
-                                    {c.done && <Check size={10} strokeWidth={3} />}
-                                  </button>
-                                  <span className={`wk-checklist-text${c.done ? " is-done" : ""}`}>{c.text}</span>
-                                  <button className="wk-checklist-del" onClick={() => removeChecklistItem(t.id, c.id)} aria-label="세부 항목 삭제">
-                                    <X size={11} />
-                                  </button>
-                                </div>
-                              ))}
-                              <div className="wk-checklist-add-row">
-                                <input
-                                  className="wk-checklist-input"
-                                  placeholder="세부 항목 추가"
-                                  value={checklistInput}
-                                  onChange={(e) => setChecklistInput(e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(t.id); }}
-                                />
-                                <button className="wk-checklist-add-btn" onClick={() => handleAddChecklistItem(t.id)} aria-label="세부 항목 추가">
-                                  <Plus size={12} />
-                                </button>
-                              </div>
-                            </div>
+                        <div key={t.id} className="wk-item">
+                          {editingId === t.id ? (
+                            <input
+                              className="wk-edit-input"
+                              value={editingText}
+                              autoFocus
+                              onChange={(e) => setEditingText(e.target.value)}
+                              onBlur={commitEdit}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
+                                if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
+                              }}
+                            />
+                          ) : (
+                            <>
+                              <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
+                                {t.done && <Check size={12} strokeWidth={3} />}
+                              </button>
+                              <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
+                              {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
+                              {checklist.length > 0 && <span className="wk-checklist-badge">{checklistDone}/{checklist.length}</span>}
+                              <button className={`wk-checklist-btn${checklistOpenId === t.id ? " is-active" : ""}`} onClick={() => toggleChecklistOpen(t.id)} aria-label="세부 체크리스트">
+                                <ListChecks size={13} />
+                              </button>
+                              <button className="wk-edit-btn" onClick={() => startEdit(t)} aria-label="수정"><Pencil size={13} /></button>
+                              <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
+                            </>
                           )}
                         </div>
                       );
@@ -299,6 +266,50 @@ function WeeklyPlanner() {
       )}
 
       {!connectionOk && <div className="wk-warning">서버와 연결이 원활하지 않아요. 변경사항이 저장되지 않을 수 있어요.</div>}
+
+      {checklistTask && (
+        <div className="wk-modal-backdrop" onClick={() => setChecklistOpenId(null)}>
+          <div className="wk-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="wk-modal-head">
+              <span className="wk-modal-title">{checklistTask.text}</span>
+              <button className="wk-modal-close" onClick={() => setChecklistOpenId(null)} aria-label="닫기"><X size={16} /></button>
+            </div>
+            <div className="wk-modal-body">
+              {checklistTaskItems.length === 0 && <div className="wk-checklist-empty">세부 항목이 없어요</div>}
+              {checklistTaskItems.map((c) => (
+                <div key={c.id} className="wk-checklist-item">
+                  <button
+                    className={`wk-checklist-check${c.done ? " is-done" : ""}`}
+                    onClick={() => toggleChecklistItem(checklistTask.id, c.id)}
+                    aria-label={c.done ? "완료 취소" : "완료로 표시"}
+                  >
+                    {c.done && <Check size={10} strokeWidth={3} />}
+                  </button>
+                  <span className={`wk-checklist-text${c.done ? " is-done" : ""}`}>{c.text}</span>
+                  <button className="wk-checklist-del" onClick={() => removeChecklistItem(checklistTask.id, c.id)} aria-label="세부 항목 삭제">
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="wk-modal-footer">
+              <div className="wk-checklist-add-row">
+                <input
+                  className="wk-checklist-input"
+                  placeholder="세부 항목 추가"
+                  value={checklistInput}
+                  autoFocus
+                  onChange={(e) => setChecklistInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(checklistTask.id); }}
+                />
+                <button className="wk-checklist-add-btn" onClick={() => handleAddChecklistItem(checklistTask.id)} aria-label="세부 항목 추가">
+                  <Plus size={12} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
