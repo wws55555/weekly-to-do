@@ -16,7 +16,7 @@ function WeeklyPlanner() {
     selectedDay, setSelectedDay,
     today, weekDates,
     addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
-    tasksFor, progressFor, weekProgress,
+    tasksFor, progressFor,
   } = useWeeklyTasks();
 
   // leaving the day (or the whole day's list) mid-reorder would leave stale
@@ -101,26 +101,19 @@ function WeeklyPlanner() {
   return (
     <div className="wk-root">
       <div className="wk-header">
+        <div className="wk-account">
+          <button className="wk-logout-btn" onClick={signOut}>로그아웃</button>
+        </div>
         <div>
           <h1 className="wk-title">위클리 플래너</h1>
           <p className="wk-subtitle">나만의 주간 할 일 목록</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-          <div className="wk-account">
-            <span className="wk-account-email">{authUser.email}</span>
-            <button className="wk-logout-btn" onClick={signOut}>로그아웃</button>
-          </div>
           <div className="wk-nav">
             <button className="wk-nav-btn" onClick={() => setWeekOffset((w) => w - 1)} aria-label="이전 주"><ChevronLeft size={16} /></button>
             <span className="wk-range">{rangeLabel}</span>
             <button className="wk-nav-btn" onClick={() => setWeekOffset((w) => w + 1)} aria-label="다음 주"><ChevronRight size={16} /></button>
             <button className="wk-today-btn" onClick={() => setWeekOffset(0)} disabled={isThisWeek}>이번 주</button>
-          </div>
-          <div className="wk-stamp">
-            <div className="wk-stamp-ring" style={{ background: `conic-gradient(#3B6255 ${weekProgress.pct * 3.6}deg, #DADFD5 0deg)` }}>
-              <div className="wk-stamp-inner">{weekProgress.pct}%</div>
-            </div>
-            <div className="wk-stamp-text">이번 주 완료<br /><b>{weekProgress.done}</b> / {weekProgress.total}</div>
           </div>
         </div>
       </div>

@@ -17,6 +17,15 @@ function authErrorMessage(e) {
   }
 }
 
+// appends the Korean object particle (을/를) based on whether the word's
+// last syllable has a batchim (final consonant)
+function withEul(word) {
+  if (!word) return word;
+  const code = word.charCodeAt(word.length - 1);
+  const hasBatchim = code >= 0xac00 && code <= 0xd7a3 ? (code - 0xac00) % 28 !== 0 : true;
+  return word + (hasBatchim ? "을" : "를");
+}
+
 function useWeeklyTasks() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [tasks, setTasks] = useState([]);
@@ -170,7 +179,13 @@ function useWeeklyTasks() {
     persist(tasks.map((t) => (t.id === id ? { ...t, text: trimmed } : t)));
   };
   const toggleDone = (id) => persist(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
-  const removeTask = (id) => persist(tasks.filter((t) => t.id !== id));
+  const removeTask = (id) => {
+    const target = tasks.find((t) => t.id === id);
+    const label = target ? withEul(target.text) : "이 할 일을";
+    if (window.confirm(`${label} 삭제할까요?`)) {
+      persist(tasks.filter((t) => t.id !== id));
+    }
+  };
   const clearDay = (dayIdx) => {
     if (tasks.filter((t) => t.day === dayIdx).length === 0) return;
     if (window.confirm("이 요일의 할 일을 모두 지울까요?")) {
