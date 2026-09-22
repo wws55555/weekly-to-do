@@ -134,6 +134,7 @@ function useWeeklyTasks() {
     createdAt: Date.now(),
     carriedOver: true,
     originDate: t.originDate || formatMD(addDays(sourceMonday, t.day)),
+    checklist: (t.checklist || []).map((c) => ({ ...c })),
   });
 
   useEffect(() => {
@@ -201,6 +202,31 @@ function useWeeklyTasks() {
     persist(tasks.map((t) => (t.day === dayIdx && orderIndex.has(t.id) ? { ...t, order: orderIndex.get(t.id) } : t)));
   };
 
+  // per-task detail checklist — each task's own `checklist: [{id, text, done}]`
+  const addChecklistItem = (taskId, text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    persist(tasks.map((t) =>
+      t.id === taskId
+        ? { ...t, checklist: [...(t.checklist || []), { id: uid(), text: trimmed, done: false }] }
+        : t
+    ));
+  };
+  const toggleChecklistItem = (taskId, itemId) => {
+    persist(tasks.map((t) =>
+      t.id === taskId
+        ? { ...t, checklist: (t.checklist || []).map((c) => (c.id === itemId ? { ...c, done: !c.done } : c)) }
+        : t
+    ));
+  };
+  const removeChecklistItem = (taskId, itemId) => {
+    persist(tasks.map((t) =>
+      t.id === taskId
+        ? { ...t, checklist: (t.checklist || []).filter((c) => c.id !== itemId) }
+        : t
+    ));
+  };
+
   const tasksFor = (dayIdx) =>
     tasks.filter((t) => t.day === dayIdx).sort((a, b) => {
       if (a.done !== b.done) return a.done ? 1 : -1;
@@ -226,6 +252,7 @@ function useWeeklyTasks() {
     selectedDay, setSelectedDay,
     today, weekDates,
     addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
+    addChecklistItem, toggleChecklistItem, removeChecklistItem,
     tasksFor, progressFor, weekProgress,
   };
 }

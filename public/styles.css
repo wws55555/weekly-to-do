@@ -111,9 +111,28 @@ html, body {
 
 .wk-carried-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: var(--gold); background: var(--gold-soft); padding: 1px 6px; border-radius: 999px; flex: none; margin-top: 2px; }
 
-.wk-del-btn, .wk-edit-btn { background: transparent; border: none; padding: 2px; flex: none; color: var(--ink-faint); border-radius: 5px; transition: color .12s ease; }
+.wk-del-btn, .wk-edit-btn, .wk-checklist-btn { background: transparent; border: none; padding: 2px; flex: none; color: var(--ink-faint); border-radius: 5px; transition: color .12s ease; }
 .wk-edit-btn:hover { color: var(--accent); }
 .wk-del-btn:hover { color: var(--danger); }
+.wk-checklist-btn:hover, .wk-checklist-btn.is-active { color: var(--accent); }
+
+.wk-checklist-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 999px; flex: none; margin-top: 2px; }
+
+.wk-checklist { margin: 0 8px 6px 44px; padding: 6px 0 6px 10px; border-left: 2px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
+.wk-checklist-empty { color: var(--ink-faint); font-size: 12px; padding: 2px 0; }
+.wk-checklist-item { display: flex; align-items: center; gap: 7px; }
+.wk-checklist-check { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--ink-faint); background: transparent; flex: none; display: flex; align-items: center; justify-content: center; padding: 0; }
+.wk-checklist-check.is-done { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wk-checklist-text { flex: 1; font-size: 13px; line-height: 1.4; word-break: break-word; }
+.wk-checklist-text.is-done { color: var(--ink-faint); text-decoration: line-through; }
+.wk-checklist-del { background: transparent; border: none; padding: 1px; flex: none; color: var(--ink-faint); border-radius: 4px; }
+.wk-checklist-del:hover { color: var(--danger); }
+.wk-checklist-add-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.wk-checklist-input { flex: 1; border: none; border-bottom: 1px solid var(--line); background: transparent; font-size: 13px; color: var(--ink); padding: 3px 2px; font-family: inherit; }
+.wk-checklist-input:focus-visible { outline: none; border-color: var(--accent); }
+.wk-checklist-input::placeholder { color: var(--ink-faint); }
+.wk-checklist-add-btn { width: 20px; height: 20px; border-radius: 6px; border: none; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none; }
+.wk-checklist-add-btn:hover { background: var(--accent); color: #fff; }
 
 .wk-edit-input { flex: 1; font-size: 14px; line-height: 1.5; color: var(--ink); border: none; border-bottom: 1px solid var(--accent); background: transparent; padding: 1px 0 2px; font-family: inherit; }
 .wk-edit-input:focus-visible { outline: none; }
