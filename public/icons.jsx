@@ -27,3 +27,10 @@ const Grip = (p) => (
 );
 const ListChecks = (p) => <Icon {...p}><path d="m3 7 2 2 4-4" /><path d="m3 15 2 2 4-4" /><path d="M11 6h9" /><path d="M11 14h9" /></Icon>;
 const CalendarIcon = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></Icon>;
+const MoreVertical = (p) => (
+  <Icon {...p}>
+    <circle cx="12" cy="5" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none" />
+  </Icon>
+);

@@ -86,10 +86,15 @@ html, body {
 
 .wk-carried-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: var(--gold); background: var(--gold-soft); padding: 1px 6px; border-radius: 999px; flex: none; margin-top: 2px; }
 
-.wk-del-btn, .wk-edit-btn, .wk-checklist-btn { background: transparent; border: none; padding: 2px; flex: none; color: var(--ink-faint); border-radius: 5px; transition: color .12s ease; }
-.wk-edit-btn:hover { color: var(--accent); }
-.wk-del-btn:hover { color: var(--danger); }
-.wk-checklist-btn:hover, .wk-checklist-btn.is-active { color: var(--accent); }
+.wk-item-menu { position: relative; flex: none; }
+.wk-item-menu-btn { background: transparent; border: none; padding: 2px; color: var(--ink-faint); border-radius: 5px; transition: color .12s ease; }
+.wk-item-menu-btn:hover, .wk-item-menu-btn.is-active { color: var(--accent); }
+.wk-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+.wk-item-menu-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 41; min-width: 92px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); display: flex; flex-direction: column; padding: 4px; gap: 1px; }
+.wk-item-menu-dropdown button { display: flex; align-items: center; gap: 7px; background: transparent; border: none; padding: 7px 9px; border-radius: 7px; font-size: 13px; color: var(--ink); text-align: left; }
+.wk-item-menu-dropdown button:hover { background: var(--surface-soft); }
+.wk-item-menu-dropdown button.is-danger { color: var(--danger); }
+.wk-item-menu-dropdown button.is-danger:hover { background: rgba(173,82,55,.1); }
 
 .wk-checklist-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 999px; flex: none; margin-top: 2px; }
 

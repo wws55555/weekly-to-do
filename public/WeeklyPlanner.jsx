@@ -9,6 +9,7 @@ function WeeklyPlanner() {
   const [reorderIds, setReorderIds] = React.useState([]);
   const [draggingId, setDraggingId] = React.useState(null);
   const [checklistOpenId, setChecklistOpenId] = React.useState(null);
+  const [itemMenuOpenId, setItemMenuOpenId] = React.useState(null);
   const [checklistInput, setChecklistInput] = React.useState("");
   const [editingChecklistItemId, setEditingChecklistItemId] = React.useState(null);
   const [editingChecklistText, setEditingChecklistText] = React.useState("");
@@ -35,6 +36,7 @@ function WeeklyPlanner() {
     setDraggingId(null);
     setChecklistOpenId(null);
     setEditingChecklistItemId(null);
+    setItemMenuOpenId(null);
   }, [selectedDay]);
 
   // while the checklist modal is open, push a history entry so the phone's
@@ -135,8 +137,12 @@ function WeeklyPlanner() {
   };
   const cancelEditChecklistItem = () => setEditingChecklistItemId(null);
 
+  const toggleItemMenu = (id) => setItemMenuOpenId((prev) => (prev === id ? null : id));
+  const closeItemMenu = () => setItemMenuOpenId(null);
+
   const enterReorderMode = (list) => {
     setChecklistOpenId(null);
+    setItemMenuOpenId(null);
     setReorderIds(list.map((t) => t.id));
     setReorderMode(true);
   };
@@ -319,11 +325,27 @@ function WeeklyPlanner() {
                               <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
                               {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
                               {checklist.length > 0 && <span className="wk-checklist-badge">{checklistDone}/{checklist.length}</span>}
-                              <button className={`wk-checklist-btn${checklistOpenId === t.id ? " is-active" : ""}`} onClick={() => toggleChecklistOpen(t.id)} aria-label="세부 체크리스트">
-                                <ListChecks size={13} />
-                              </button>
-                              <button className="wk-edit-btn" onClick={() => startEdit(t)} aria-label="수정"><Pencil size={13} /></button>
-                              <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
+                              <div className="wk-item-menu">
+                                <button className={`wk-item-menu-btn${itemMenuOpenId === t.id ? " is-active" : ""}`} onClick={() => toggleItemMenu(t.id)} aria-label="더보기">
+                                  <MoreVertical size={15} />
+                                </button>
+                                {itemMenuOpenId === t.id && (
+                                  <>
+                                    <div className="wk-menu-backdrop" onClick={closeItemMenu} />
+                                    <div className="wk-item-menu-dropdown">
+                                      <button onClick={() => { toggleChecklistOpen(t.id); closeItemMenu(); }}>
+                                        <ListChecks size={13} /> 상세
+                                      </button>
+                                      <button onClick={() => { startEdit(t); closeItemMenu(); }}>
+                                        <Pencil size={13} /> 수정
+                                      </button>
+                                      <button className="is-danger" onClick={() => { removeTask(t.id); closeItemMenu(); }}>
+                                        <X size={13} /> 삭제
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
                             </>
                           )}
                         </div>
