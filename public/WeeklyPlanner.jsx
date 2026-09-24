@@ -10,6 +10,7 @@ function WeeklyPlanner() {
   const [draggingId, setDraggingId] = React.useState(null);
   const [checklistOpenId, setChecklistOpenId] = React.useState(null);
   const [itemMenuOpenId, setItemMenuOpenId] = React.useState(null);
+  const [panelMenuOpen, setPanelMenuOpen] = React.useState(false);
   const [checklistInput, setChecklistInput] = React.useState("");
   const [editingChecklistItemId, setEditingChecklistItemId] = React.useState(null);
   const [editingChecklistText, setEditingChecklistText] = React.useState("");
@@ -37,6 +38,7 @@ function WeeklyPlanner() {
     setChecklistOpenId(null);
     setEditingChecklistItemId(null);
     setItemMenuOpenId(null);
+    setPanelMenuOpen(false);
   }, [selectedDay]);
 
   // while the checklist modal is open, push a history entry so the phone's
@@ -143,6 +145,7 @@ function WeeklyPlanner() {
   const enterReorderMode = (list) => {
     setChecklistOpenId(null);
     setItemMenuOpenId(null);
+    setPanelMenuOpen(false);
     setReorderIds(list.map((t) => t.id));
     setReorderMode(true);
   };
@@ -241,19 +244,33 @@ function WeeklyPlanner() {
                 <div className="wk-tab-bg" />
                 <div className="wk-panel-head-content">
                   <span>
-                    <span className="wk-panel-day">{DAY_LABELS_FULL[selectedDay]}</span>
-                    <span className="wk-panel-date">{formatMD(weekDates[selectedDay])}</span>
+                    <span className="wk-panel-day">{formatMD(weekDates[selectedDay])}</span>
+                    <span className="wk-panel-date">({DAY_LABELS[selectedDay]})</span>
                   </span>
-                  <span>
+                  <span className="wk-panel-actions">
                     <span className="wk-panel-count">{activeProgress.total > 0 ? `${activeProgress.done}/${activeProgress.total}` : ""}</span>
-                    <button
-                      className={`wk-reorder-btn${reorderMode ? " is-active" : ""}`}
-                      onClick={() => (reorderMode ? exitReorderMode() : enterReorderMode(activeList))}
-                      disabled={!reorderMode && activeList.length < 2}
-                    >
-                      {reorderMode ? "완료" : "순서변경"}
-                    </button>
-                    <button className="wk-clear-btn" onClick={() => clearDay(selectedDay)} aria-label="이 요일 전체 삭제"><Trash2 size={13} /></button>
+                    {reorderMode ? (
+                      <button className="wk-reorder-btn is-active" onClick={exitReorderMode}>완료</button>
+                    ) : (
+                      <div className="wk-item-menu">
+                        <button className={`wk-item-menu-btn${panelMenuOpen ? " is-active" : ""}`} onClick={() => setPanelMenuOpen((v) => !v)} aria-label="더보기">
+                          <MoreVertical size={16} />
+                        </button>
+                        {panelMenuOpen && (
+                          <>
+                            <div className="wk-menu-backdrop" onClick={() => setPanelMenuOpen(false)} />
+                            <div className="wk-item-menu-dropdown">
+                              <button disabled={activeList.length < 2} onClick={() => enterReorderMode(activeList)}>
+                                순서변경
+                              </button>
+                              <button className="is-danger" disabled={activeList.length === 0} onClick={() => { clearDay(selectedDay); setPanelMenuOpen(false); }}>
+                                <Trash2 size={13} /> 전체 삭제
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </span>
                 </div>
               </div>
