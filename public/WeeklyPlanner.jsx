@@ -221,7 +221,6 @@ function WeeklyPlanner() {
       <div className="wk-header">
         <div>
           <h1 className="wk-title">위클리 플래너</h1>
-          <p className="wk-subtitle">나만의 주간 할 일 목록</p>
         </div>
         <div className="wk-header-actions">
           <button className="wk-logout-btn" onClick={signOut}>로그아웃</button>
@@ -261,7 +260,7 @@ function WeeklyPlanner() {
                             <div className="wk-menu-backdrop" onClick={() => setPanelMenuOpen(false)} />
                             <div className="wk-item-menu-dropdown">
                               <button disabled={activeList.length < 2} onClick={() => enterReorderMode(activeList)}>
-                                순서변경
+                                <Grip size={13} /> 순서변경
                               </button>
                               <button className="is-danger" disabled={activeList.length === 0} onClick={() => { clearDay(selectedDay); setPanelMenuOpen(false); }}>
                                 <Trash2 size={13} /> 전체 삭제
