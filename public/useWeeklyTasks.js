@@ -190,7 +190,12 @@ function useWeeklyTasks() {
   // within the currently-shown week that's just a selectedDay change;
   // a different week needs weekOffset to change first, so the target day is
   // stashed in pendingSelectedDayRef for the weekKey-change effect to apply
-  const goToDate = useCallback((date) => {
+  const goToDate = useCallback((rawDate) => {
+    // normalize to local midnight first — a raw `date` with a time-of-day
+    // component (e.g. goToDate(today), where `today` is `new Date()`) would
+    // otherwise make the day-index math below fractional and round to the
+    // wrong day once past noon
+    const date = new Date(rawDate.getFullYear(), rawDate.getMonth(), rawDate.getDate());
     const targetMonday = getMonday(date);
     const targetOffset = Math.round((targetMonday - getMonday(today)) / (7 * 86400000));
     const dayIdx = Math.round((date - targetMonday) / 86400000);
