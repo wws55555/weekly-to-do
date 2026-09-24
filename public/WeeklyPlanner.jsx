@@ -12,14 +12,16 @@ function WeeklyPlanner() {
   const [checklistInput, setChecklistInput] = React.useState("");
   const [editingChecklistItemId, setEditingChecklistItemId] = React.useState(null);
   const [editingChecklistText, setEditingChecklistText] = React.useState("");
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
+  const [calendarMonth, setCalendarMonth] = React.useState(null);
   const rowRefs = React.useRef({});
   const dragPointerId = React.useRef(null);
   const suppressPopRef = React.useRef(false);
+  const suppressCalendarPopRef = React.useRef(false);
   const {
     authUser, authChecked, authError, authPending, signUp, signIn, signOut,
-    weekOffset, setWeekOffset,
     connectionOk, loading,
-    selectedDay, setSelectedDay,
+    selectedDay, setSelectedDay, goToDate,
     today, weekDates,
     addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
     addChecklistItem, toggleChecklistItem, removeChecklistItem, editChecklistItem,
@@ -53,6 +55,38 @@ function WeeklyPlanner() {
       suppressPopRef.current = false;
     };
   }, [checklistOpenId]);
+
+  // same pattern as the checklist modal above: push a history entry while
+  // the calendar is open so the hardware back button closes it instead of
+  // exiting the app
+  React.useEffect(() => {
+    if (!calendarOpen) return;
+    window.history.pushState({ wkModal: true }, "");
+    const onPopState = () => {
+      suppressCalendarPopRef.current = true;
+      setCalendarOpen(false);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (!suppressCalendarPopRef.current) window.history.back();
+      suppressCalendarPopRef.current = false;
+    };
+  }, [calendarOpen]);
+
+  const openCalendar = () => {
+    const base = selectedDay !== null ? weekDates[selectedDay] : today;
+    setCalendarMonth(new Date(base.getFullYear(), base.getMonth(), 1));
+    setCalendarOpen(true);
+  };
+  const closeCalendar = () => setCalendarOpen(false);
+  const shiftCalendarMonth = (delta) => {
+    setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  };
+  const pickCalendarDate = (date) => {
+    goToDate(date);
+    setCalendarOpen(false);
+  };
 
   const handleAddTask = () => {
     addTask(inputText, selectedDay);
@@ -156,30 +190,37 @@ function WeeklyPlanner() {
     return <AuthScreen onSignIn={signIn} onSignUp={signUp} error={authError} pending={authPending} />;
   }
 
-  const rangeLabel = `${formatMD(weekDates[0])} – ${formatMD(weekDates[6])}`;
-  const isThisWeek = weekOffset === 0;
+  const isToday = selectedDay !== null && isSameDay(weekDates[selectedDay], today);
   const activeList = selectedDay === null ? [] : tasksFor(selectedDay);
   const activeProgress = selectedDay === null ? { done: 0, total: 0 } : progressFor(selectedDay);
   const taskById = Object.fromEntries(activeList.map((t) => [t.id, t]));
   const checklistTask = checklistOpenId ? taskById[checklistOpenId] : null;
   const checklistTaskItems = checklistTask ? (checklistTask.checklist || []) : [];
+  const calendarCells = calendarMonth ? (() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const leadingBlanks = (new Date(year, month, 1).getDay() + 6) % 7; // Monday-first
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return [
+      ...Array(leadingBlanks).fill(null),
+      ...Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)),
+    ];
+  })() : [];
 
   return (
     <div className="wk-root">
       <div className="wk-header">
-        <div className="wk-account">
-          <button className="wk-logout-btn" onClick={signOut}>로그아웃</button>
-        </div>
         <div>
           <h1 className="wk-title">위클리 플래너</h1>
           <p className="wk-subtitle">나만의 주간 할 일 목록</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-          <div className="wk-nav">
-            <button className="wk-nav-btn" onClick={() => setWeekOffset((w) => w - 1)} aria-label="이전 주"><ChevronLeft size={16} /></button>
-            <span className="wk-range">{rangeLabel}</span>
-            <button className="wk-nav-btn" onClick={() => setWeekOffset((w) => w + 1)} aria-label="다음 주"><ChevronRight size={16} /></button>
-            <button className="wk-today-btn" onClick={() => setWeekOffset(0)} disabled={isThisWeek}>이번 주</button>
+        <div className="wk-header-actions">
+          <button className="wk-logout-btn" onClick={signOut}>로그아웃</button>
+          <div className="wk-header-nav">
+            <button className="wk-today-btn" onClick={() => goToDate(today)} disabled={isToday}>오늘</button>
+            <button className="wk-calendar-btn" onClick={openCalendar} aria-label="달력 열기">
+              <CalendarIcon size={16} />
+            </button>
           </div>
         </div>
       </div>
@@ -188,32 +229,8 @@ function WeeklyPlanner() {
         <div className="wk-loading">불러오는 중…</div>
       ) : (
         <>
-          <div className="wk-strip">
-            {weekDates.map((date, idx) => {
-              const isToday = isSameDay(date, today);
-              const isSelected = selectedDay === idx;
-              const { done, total } = progressFor(idx);
-              const hasContent = total > 0;
-              const allComplete = hasContent && done === total;
-              const dotClass = total === 0 ? "" : allComplete ? "all-done" : "has-tasks";
-              return (
-                <button
-                  key={idx}
-                  className={`wk-day-btn${isSelected ? " is-selected" : ""}${isToday ? " is-today" : ""}${hasContent ? " has-content" : ""}${allComplete ? " all-complete" : ""}`}
-                  onClick={() => setSelectedDay(idx)}
-                >
-                  {isToday && <span className="wk-today-mark" />}
-                  {hasContent && <span className={`wk-day-badge${allComplete ? " all-complete" : ""}`}>{total}</span>}
-                  <span className="wk-day-btn-name">{DAY_LABELS[idx]}</span>
-                  <span className="wk-day-btn-date">{formatMD(date)}</span>
-                  <span className={`wk-day-dot ${dotClass}`} />
-                </button>
-              );
-            })}
-          </div>
-
           {selectedDay !== null && (
-            <div className={`wk-panel${isSameDay(weekDates[selectedDay], today) ? " is-today" : ""}`}>
+            <div className={`wk-panel${isToday ? " is-today" : ""}`}>
               <div className="wk-panel-head">
                 <div className="wk-tab-bg" />
                 <div className="wk-panel-head-content">
@@ -391,6 +408,40 @@ function WeeklyPlanner() {
                   <Plus size={12} />
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {calendarOpen && calendarMonth && (
+        <div className="wk-modal-backdrop" onClick={closeCalendar}>
+          <div className="wk-modal wk-calendar-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="wk-modal-head">
+              <span className="wk-modal-title">날짜 선택</span>
+              <button className="wk-modal-close" onClick={closeCalendar} aria-label="닫기"><X size={16} /></button>
+            </div>
+            <div className="wk-calendar-nav">
+              <button className="wk-nav-btn" onClick={() => shiftCalendarMonth(-1)} aria-label="이전 달"><ChevronLeft size={16} /></button>
+              <span className="wk-calendar-month">{calendarMonth.getFullYear()}.{String(calendarMonth.getMonth() + 1).padStart(2, "0")}</span>
+              <button className="wk-nav-btn" onClick={() => shiftCalendarMonth(1)} aria-label="다음 달"><ChevronRight size={16} /></button>
+            </div>
+            <div className="wk-calendar-grid">
+              {DAY_LABELS.map((label) => (
+                <span key={label} className="wk-calendar-weekday">{label}</span>
+              ))}
+              {calendarCells.map((cellDate, idx) =>
+                cellDate === null ? (
+                  <span key={`b${idx}`} className="wk-calendar-cell is-empty" />
+                ) : (
+                  <button
+                    key={toKey(cellDate)}
+                    className={`wk-calendar-cell${isSameDay(cellDate, today) ? " is-today" : ""}${selectedDay !== null && isSameDay(cellDate, weekDates[selectedDay]) ? " is-selected" : ""}`}
+                    onClick={() => pickCalendarDate(cellDate)}
+                  >
+                    {cellDate.getDate()}
+                  </button>
+                )
+              )}
             </div>
           </div>
         </div>

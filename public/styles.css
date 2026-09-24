@@ -39,48 +39,23 @@ html, body {
 .wk-root input { font-family: inherit; }
 .wk-root button:focus-visible, .wk-root input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.wk-header { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.wk-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
 .wk-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: -0.02em; margin: 0; }
 .wk-subtitle { font-size: 13px; color: var(--ink-soft); margin: 4px 0 0; display: flex; align-items: center; }
 
-.wk-account { position: absolute; top: 0; right: 0; }
+.wk-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.wk-header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .wk-logout-btn { font-size: 12px; font-weight: 500; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface); }
 .wk-logout-btn:hover { border-color: var(--danger); color: var(--danger); }
 
-.wk-nav { display: flex; align-items: center; gap: 10px; }
 .wk-nav-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--ink); transition: background .15s ease, border-color .15s ease; }
 .wk-nav-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
-.wk-range { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ink-soft); min-width: 96px; text-align: center; }
 .wk-today-btn { font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); background: transparent; margin-left: 4px; }
 .wk-today-btn:disabled { opacity: .35; cursor: default; }
 .wk-today-btn:not(:disabled):hover { background: var(--accent-soft); }
 
-.wk-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 18px; }
-.wk-day-btn { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 6px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: border-color .15s ease, background .15s ease, transform .1s ease; }
-.wk-day-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
-.wk-day-btn.is-today { border-color: var(--gold); }
-.wk-day-btn.is-selected { background: var(--accent); border-color: var(--accent); }
-.wk-day-btn.is-selected.is-today { border-color: var(--gold); }
-.wk-day-btn-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; }
-.wk-day-btn-date { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--ink-soft); }
-.wk-day-btn.is-selected .wk-day-btn-name, .wk-day-btn.is-selected .wk-day-btn-date { color: #fff; }
-
-.wk-day-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
-.wk-day-dot.has-tasks { background: var(--gold); }
-.wk-day-dot.all-done { background: var(--accent); }
-.wk-day-btn.is-selected .wk-day-dot.has-tasks { background: var(--gold-soft); }
-.wk-day-btn.is-selected .wk-day-dot.all-done { background: #fff; }
-.wk-day-btn.is-selected .wk-day-dot:not(.has-tasks):not(.all-done) { background: rgba(255,255,255,.35); }
-
-.wk-today-mark { position: absolute; top: 6px; right: 6px; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
-.wk-day-btn.is-selected .wk-today-mark { background: var(--gold-soft); }
-
-.wk-day-btn.has-content { border-color: var(--gold); background: var(--gold-soft); }
-.wk-day-btn.has-content.all-complete { border-color: var(--accent); background: var(--accent-soft); }
-.wk-day-btn.has-content.is-selected { background: var(--accent); border-color: var(--accent); }
-.wk-day-badge { position: absolute; top: -6px; left: -6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--gold); color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bg); }
-.wk-day-badge.all-complete { background: var(--accent); }
-.wk-day-btn.is-selected .wk-day-badge { border-color: var(--surface); }
+.wk-calendar-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--ink); transition: background .15s ease, border-color .15s ease; }
+.wk-calendar-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
 
 .wk-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .wk-panel-head { position: relative; padding: 16px 18px 12px; }
@@ -146,6 +121,16 @@ html, body {
 .wk-modal-body { padding: 12px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .wk-modal-footer { padding: 10px 16px 16px; border-top: 1px solid var(--line); }
 
+.wk-calendar-nav { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 16px 4px; }
+.wk-calendar-month { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ink-soft); min-width: 64px; text-align: center; }
+.wk-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 8px 16px 18px; }
+.wk-calendar-weekday { font-size: 11px; font-weight: 500; color: var(--ink-faint); text-align: center; padding: 4px 0; }
+.wk-calendar-cell { aspect-ratio: 1; border: none; background: transparent; border-radius: 8px; font-size: 13px; color: var(--ink); display: flex; align-items: center; justify-content: center; }
+.wk-calendar-cell.is-empty { pointer-events: none; }
+.wk-calendar-cell:not(.is-empty):hover { background: var(--surface-soft); }
+.wk-calendar-cell.is-today { color: var(--gold); font-weight: 700; }
+.wk-calendar-cell.is-selected { background: var(--accent); color: #fff; font-weight: 700; }
+
 .wk-edit-fields { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .wk-edit-input { font-size: 14px; line-height: 1.5; color: var(--ink); border: none; border-bottom: 1px solid var(--accent); background: transparent; padding: 1px 0 2px; font-family: inherit; }
 .wk-edit-input:focus-visible { outline: none; }
@@ -174,12 +159,6 @@ html, body {
 
 .wk-loading { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 40px 0; }
 .wk-warning { font-size: 11px; color: var(--danger); margin-top: 10px; text-align: right; }
-
-@media (max-width: 480px) {
-  .wk-strip { gap: 5px; }
-  .wk-day-btn { padding: 9px 2px 8px; }
-  .wk-day-btn-name { font-size: 13px; }
-}
 
 .auth-root { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: 20px 0; }
 .auth-card { width: 100%; max-width: 340px; background: #FBFBF7; border: 1px solid #DADFD5; border-radius: 12px; padding: 28px 24px; text-align: center; }

@@ -72,10 +72,11 @@ instead of the app.
 | `stop` | Kills the emulator. |
 
 Example drive-through (used to verify this skill): boot → install →
-launch → screenshot → tap the "화" (Tuesday) day-tab at device coords
-`(251, 803)` on a Pixel_9 → screenshot again → tab selection visibly
-moved from Monday to Tuesday and the card below updated to "화요일
-9.8".
+launch → screenshot → tap the calendar icon in the header → screenshot
+again → a month-grid date picker modal is visible → tap a date cell →
+screenshot again → the modal closed and the panel below now shows that
+date's day name/date (only one day's panel is shown at a time; there's
+no more row of day tabs to tap directly).
 
 ## Run (human path)
 

@@ -44,6 +44,10 @@ function useWeeklyTasks() {
   const weekKey = useMemo(() => toKey(monday), [monday]);
   const todayIndexInWeek = useMemo(() => weekDates.findIndex((d) => isSameDay(d, today)), [weekDates, today]);
   const prevWeekCarryRanForRef = useRef(null);
+  // set by goToDate() right before a weekOffset change that crosses into a
+  // different week, so the weekKey-change effect below lands on that exact
+  // day instead of its usual "jump to today" default
+  const pendingSelectedDayRef = useRef(null);
 
   // keep "today" current if the app is left open across midnight
   useEffect(() => {
@@ -95,7 +99,12 @@ function useWeeklyTasks() {
   useEffect(() => {
     if (!authUser) return;
     setLoading(true);
-    setSelectedDay(todayIndexInWeek >= 0 ? todayIndexInWeek : 0);
+    if (pendingSelectedDayRef.current !== null) {
+      setSelectedDay(pendingSelectedDayRef.current);
+      pendingSelectedDayRef.current = null;
+    } else {
+      setSelectedDay(todayIndexInWeek >= 0 ? todayIndexInWeek : 0);
+    }
     const unsub = WeeklyPlannerAPI.watchWeek(
       authUser.uid,
       weekKey,
@@ -176,6 +185,22 @@ function useWeeklyTasks() {
       return { nextCurrent: [...currentTasks, ...copies], markedPrev };
     }).catch((e) => console.error("carry-over (prev week) failed", e));
   }, [weekOffset, loading, todayIndexInWeek, authUser, weekKey, monday]);
+
+  // jump straight to an arbitrary date (used by the calendar picker) —
+  // within the currently-shown week that's just a selectedDay change;
+  // a different week needs weekOffset to change first, so the target day is
+  // stashed in pendingSelectedDayRef for the weekKey-change effect to apply
+  const goToDate = useCallback((date) => {
+    const targetMonday = getMonday(date);
+    const targetOffset = Math.round((targetMonday - getMonday(today)) / (7 * 86400000));
+    const dayIdx = Math.round((date - targetMonday) / 86400000);
+    if (targetOffset === weekOffset) {
+      setSelectedDay(dayIdx);
+    } else {
+      pendingSelectedDayRef.current = dayIdx;
+      setWeekOffset(targetOffset);
+    }
+  }, [today, weekOffset]);
 
   const addTask = (text, dayIdx) => {
     const trimmed = text.trim();
@@ -302,7 +327,7 @@ function useWeeklyTasks() {
     authUser, authChecked, authError, authPending, signUp, signIn, signOut,
     weekOffset, setWeekOffset,
     connectionOk, loading,
-    selectedDay, setSelectedDay,
+    selectedDay, setSelectedDay, goToDate,
     today, weekDates,
     addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
     addChecklistItem, toggleChecklistItem, removeChecklistItem, editChecklistItem,
