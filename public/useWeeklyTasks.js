@@ -126,24 +126,32 @@ function useWeeklyTasks() {
   // carry over incomplete tasks from earlier days in this week to today, as
   // independent copies — the original stays on its own day (marked so it
   // isn't copied again), the copy lands on today and is a separate task
-  const makeCarriedCopy = (t, dayIdx, sourceMonday) => ({
+  const makeCarriedCopy = (t, dayIdx, sourceMonday, seedCreatedAt) => ({
     id: uid(),
     day: dayIdx,
     text: t.text,
     done: false,
-    createdAt: Date.now(),
+    createdAt: seedCreatedAt,
     carriedOver: true,
     originDate: t.originDate || formatMD(addDays(sourceMonday, t.day)),
     checklist: (t.checklist || []).map((c) => ({ ...c })),
   });
 
+  // tasksFor's own sort (done sinks, then order ?? createdAt) restricted to
+  // not-done, unforwarded tasks and extended to break day ties first — used
+  // to preserve each source day's manual/registration order when several
+  // days' worth of tasks carry over together
+  const sortForCarryOver = (list) =>
+    [...list].sort((a, b) => (a.day - b.day) || ((a.order ?? a.createdAt) - (b.order ?? b.createdAt)));
+
   useEffect(() => {
     if (weekOffset !== 0 || loading || todayIndexInWeek < 0) return;
-    const toForward = tasks.filter((t) => !t.done && !t.forwarded && t.day < todayIndexInWeek);
+    const toForward = sortForCarryOver(tasks.filter((t) => !t.done && !t.forwarded && t.day < todayIndexInWeek));
     if (toForward.length === 0) return;
     const forwardIds = new Set(toForward.map((t) => t.id));
     const marked = tasks.map((t) => (forwardIds.has(t.id) ? { ...t, forwarded: true } : t));
-    const copies = toForward.map((t) => makeCarriedCopy(t, todayIndexInWeek, monday));
+    const now = Date.now();
+    const copies = toForward.map((t, i) => makeCarriedCopy(t, todayIndexInWeek, monday, now + i));
     persist([...marked, ...copies]);
   }, [tasks, todayIndexInWeek, weekOffset, loading, persist, monday]);
 
@@ -158,12 +166,13 @@ function useWeeklyTasks() {
     const prevKey = toKey(prevMonday);
 
     WeeklyPlannerAPI.runCarryOverFromPrevWeek(authUser.uid, weekKey, prevKey, (currentTasks, prevTasks) => {
-      const toForward = prevTasks.filter((t) => !t.done && !t.forwarded);
+      const toForward = sortForCarryOver(prevTasks.filter((t) => !t.done && !t.forwarded));
       if (toForward.length === 0) return null;
 
       const forwardIds = new Set(toForward.map((t) => t.id));
       const markedPrev = prevTasks.map((t) => (forwardIds.has(t.id) ? { ...t, forwarded: true } : t));
-      const copies = toForward.map((t) => makeCarriedCopy(t, todayIndexInWeek, prevMonday));
+      const now = Date.now();
+      const copies = toForward.map((t, i) => makeCarriedCopy(t, todayIndexInWeek, prevMonday, now + i));
       return { nextCurrent: [...currentTasks, ...copies], markedPrev };
     }).catch((e) => console.error("carry-over (prev week) failed", e));
   }, [weekOffset, loading, todayIndexInWeek, authUser, weekKey, monday]);
