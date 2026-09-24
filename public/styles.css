@@ -40,7 +40,6 @@ html, body {
 
 .wk-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
 .wk-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: -0.02em; margin: 0; }
-.wk-subtitle { font-size: 13px; color: var(--ink-soft); margin: 4px 0 0; display: flex; align-items: center; }
 
 .wk-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .wk-header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -166,8 +165,7 @@ html, body {
 
 .auth-root { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: 20px 0; }
 .auth-card { width: 100%; max-width: 340px; background: #FFFFFF; border: 1px solid #E2E2E2; border-radius: 12px; padding: 28px 24px; text-align: center; }
-.auth-card .wk-title { text-align: center; }
-.auth-card .wk-subtitle { justify-content: center; margin-bottom: 20px; color: #6B6B6B; }
+.auth-card .wk-title { text-align: center; margin-bottom: 20px; }
 .auth-form { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
 .auth-input { border: 1px solid #E2E2E2; border-radius: 8px; padding: 11px 12px; font-size: 14px; background: #fff; color: #171717; }
 .auth-input::placeholder { color: #A0A0A0; }
