@@ -221,6 +221,31 @@ function useWeeklyTasks() {
     }).catch((e) => console.error("carry-over (prev week) failed", e));
   }, [weekOffset, loading, todayIndexInWeek, authUser, weekKey, monday]);
 
+  // for the calendar picker's per-date markers: resolves to
+  // { "YYYY-MM-DD": "open" | "done" } for every date in [fromDate, toDate]'s
+  // weeks that has any task — "open" if at least one is still undone and not
+  // already forwarded to a later day, "done" otherwise. The currently-viewed
+  // week uses the live `tasks` rather than the one-shot read.
+  const fetchCalendarMarks = useCallback((fromDate, toDate) => {
+    if (!authUser) return Promise.resolve({});
+    const fromKey = toKey(getMonday(fromDate));
+    const lastKey = toKey(getMonday(toDate));
+    return WeeklyPlannerAPI.fetchWeeksInRange(authUser.uid, fromKey, lastKey).then((weeks) => {
+      if (tasksReady) weeks[weekKey] = tasks;
+      const marks = {};
+      Object.entries(weeks).forEach(([key, list]) => {
+        const [y, m, d] = key.split("-").map(Number);
+        const weekMonday = new Date(y, m - 1, d);
+        list.forEach((t) => {
+          const dateKey = toKey(addDays(weekMonday, t.day));
+          const open = !t.done && !t.forwarded;
+          marks[dateKey] = marks[dateKey] === "open" || open ? "open" : "done";
+        });
+      });
+      return marks;
+    });
+  }, [authUser, tasksReady, weekKey, tasks]);
+
   // jump straight to an arbitrary date (used by the calendar picker) —
   // within the currently-shown week that's just a selectedDay change;
   // a different week needs weekOffset to change first, so the target day is
@@ -377,6 +402,7 @@ function useWeeklyTasks() {
 
   return {
     authUser, authChecked, authError, authPending, signUp, signIn, signOut, changePassword,
+    fetchCalendarMarks,
     weekOffset, setWeekOffset,
     connectionOk, loading,
     selectedDay, setSelectedDay, goToDate,

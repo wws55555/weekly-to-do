@@ -71,6 +71,25 @@ var WeeklyPlannerAPI = (function () {
     }, onError);
   }
 
+  // one-shot read of every week doc whose weekKey (a Monday, YYYY-MM-DD)
+  // falls in [fromKey, toKey] — keys sort chronologically as strings, so a
+  // document-id range query covers it. Resolves to { weekKey: tasks }; weeks
+  // with no doc are simply absent. Used by the calendar picker's markers.
+  function fetchWeeksInRange(uid, fromKey, toKey) {
+    var idField = firebase.firestore.FieldPath.documentId();
+    return firebase.firestore().collection("users").doc(uid).collection("weeklyPlanner")
+      .where(idField, ">=", fromKey).where(idField, "<=", toKey)
+      .get()
+      .then(function (qs) {
+        var out = {};
+        qs.forEach(function (d) {
+          var data = d.data();
+          out[d.id] = Array.isArray(data.tasks) ? data.tasks : [];
+        });
+        return out;
+      });
+  }
+
   // read-modify-write of one week's tasks array inside a transaction:
   // mutate(currentServerTasks) returns the next array, or null to skip the
   // write. Since the whole array is rewritten, deriving it from the server's
@@ -147,6 +166,7 @@ var WeeklyPlannerAPI = (function () {
     changePassword: changePassword,
     watchWeek: watchWeek,
     updateWeek: updateWeek,
+    fetchWeeksInRange: fetchWeeksInRange,
     runCarryOverFromPrevWeek: runCarryOverFromPrevWeek,
     moveTaskAcrossWeeks: moveTaskAcrossWeeks
   };

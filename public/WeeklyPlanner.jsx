@@ -18,6 +18,7 @@ function WeeklyPlanner() {
   const [editingChecklistText, setEditingChecklistText] = React.useState("");
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [calendarMonth, setCalendarMonth] = React.useState(null);
+  const [calendarMarks, setCalendarMarks] = React.useState({});
   const rowRefs = React.useRef({});
   const dragPointerId = React.useRef(null);
   const suppressPopRef = React.useRef(false);
@@ -25,6 +26,7 @@ function WeeklyPlanner() {
   const suppressPasswordPopRef = React.useRef(false);
   const {
     authUser, authChecked, authError, authPending, signUp, signIn, signOut, changePassword,
+    fetchCalendarMarks,
     connectionOk, loading,
     selectedDay, setSelectedDay, goToDate,
     today, weekDates,
@@ -80,6 +82,20 @@ function WeeklyPlanner() {
       suppressCalendarPopRef.current = false;
     };
   }, [calendarOpen]);
+
+  // (re)load the per-date task markers whenever the calendar opens or flips
+  // to another month; a late response for a month already left is dropped
+  React.useEffect(() => {
+    if (!calendarOpen || !calendarMonth) return;
+    let cancelled = false;
+    const first = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+    const last = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
+    fetchCalendarMarks(first, last)
+      .then((marks) => { if (!cancelled) setCalendarMarks(marks); })
+      .catch((e) => console.error("calendar markers failed", e));
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarOpen, calendarMonth]);
 
   // same back-button pattern for the change-password modal
   React.useEffect(() => {
@@ -517,6 +533,9 @@ function WeeklyPlanner() {
                     onClick={() => pickCalendarDate(cellDate)}
                   >
                     {cellDate.getDate()}
+                    {calendarMarks[toKey(cellDate)] && (
+                      <span className={`wk-calendar-dot is-${calendarMarks[toKey(cellDate)]}`} />
+                    )}
                   </button>
                 )
               )}
