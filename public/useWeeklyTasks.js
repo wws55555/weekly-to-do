@@ -29,6 +29,9 @@ function withEul(word) {
 function useWeeklyTasks() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [tasks, setTasks] = useState([]);
+  // which `${uid}/${weekKey}` the `tasks` array was last loaded from — see
+  // tasksReady below
+  const [tasksSource, setTasksSource] = useState(null);
   const [connectionOk, setConnectionOk] = useState(true);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(null);
@@ -44,6 +47,13 @@ function useWeeklyTasks() {
   const weekKey = useMemo(() => toKey(monday), [monday]);
   const todayIndexInWeek = useMemo(() => weekDates.findIndex((d) => isSameDay(d, today)), [weekDates, today]);
   const prevWeekCarryRanForRef = useRef(null);
+  // `tasks` only belongs to the doc being viewed once that doc's snapshot has
+  // arrived. Right after a week (or account) switch, weekKey/authUser already
+  // point at the new doc while `tasks` still holds the previous one's array —
+  // and since every write overwrites the whole array, persisting (or running
+  // carry-over) in that window would clobber the new doc with the old doc's
+  // tasks. Every write path checks this first.
+  const tasksReady = authUser !== null && tasksSource === `${authUser.uid}/${weekKey}`;
   // set by goToDate() right before a weekOffset change that crosses into a
   // different week, so the weekKey-change effect below lands on that exact
   // day instead of its usual "jump to today" default
@@ -122,6 +132,7 @@ function useWeeklyTasks() {
       weekKey,
       (nextTasks) => {
         setTasks(nextTasks);
+        setTasksSource(`${authUser.uid}/${weekKey}`);
         setConnectionOk(true);
         setLoading(false);
       },
@@ -136,13 +147,13 @@ function useWeeklyTasks() {
   }, [weekKey, authUser]);
 
   const persist = useCallback((next) => {
+    if (!tasksReady) return; // `next` was derived from another doc's tasks
     setTasks(next); // optimistic UI update; onSnapshot will confirm
-    if (!authUser) return;
     WeeklyPlannerAPI.writeWeek(authUser.uid, weekKey, next).catch((e) => {
       console.error(e);
       setConnectionOk(false);
     });
-  }, [weekKey, authUser]);
+  }, [weekKey, authUser, tasksReady]);
 
   // carry over incomplete tasks from earlier days in this week to today, as
   // independent copies — the original stays on its own day (marked so it
@@ -166,7 +177,7 @@ function useWeeklyTasks() {
     [...list].sort((a, b) => (a.day - b.day) || ((a.order ?? a.createdAt) - (b.order ?? b.createdAt)));
 
   useEffect(() => {
-    if (weekOffset !== 0 || loading || todayIndexInWeek < 0) return;
+    if (weekOffset !== 0 || loading || !tasksReady || todayIndexInWeek < 0) return;
     const toForward = sortForCarryOver(tasks.filter((t) => !t.done && !t.forwarded && t.day < todayIndexInWeek));
     if (toForward.length === 0) return;
     const forwardIds = new Set(toForward.map((t) => t.id));
@@ -174,7 +185,7 @@ function useWeeklyTasks() {
     const now = Date.now();
     const copies = toForward.map((t, i) => makeCarriedCopy(t, todayIndexInWeek, monday, now + i));
     persist([...marked, ...copies]);
-  }, [tasks, todayIndexInWeek, weekOffset, loading, persist, monday]);
+  }, [tasks, tasksReady, todayIndexInWeek, weekOffset, loading, persist, monday]);
 
   // carry over incomplete tasks left in last week's document, once per week view
   useEffect(() => {
