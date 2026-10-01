@@ -376,7 +376,11 @@ function WeeklyPlanner() {
                               </button>
                               <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
                               {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
-                              {checklist.length > 0 && <span className="wk-checklist-badge">{checklistDone}/{checklist.length}</span>}
+                              {checklist.length > 0 && (
+                                <button className="wk-checklist-badge" onClick={() => toggleChecklistOpen(t.id)} aria-label="상세 열기">
+                                  {checklistDone}/{checklist.length}
+                                </button>
+                              )}
                               <div className="wk-item-menu">
                                 <button className={`wk-item-menu-btn${itemMenuOpenId === t.id ? " is-active" : ""}`} onClick={() => toggleItemMenu(t.id)} aria-label="더보기">
                                   <MoreVertical size={15} />

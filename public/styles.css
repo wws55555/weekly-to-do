@@ -95,6 +95,8 @@ html, body {
 .wk-item-menu-dropdown button:disabled:hover { background: transparent; }
 
 .wk-checklist-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 999px; flex: none; margin-top: 2px; }
+/* the badge is a button (opens the checklist modal, same as 상세); keep it looking like the plain pill — this outranks `.wk-root button`'s font-family: inherit */
+button.wk-checklist-badge { font-family: 'IBM Plex Mono', monospace; border: none; line-height: inherit; }
 
 .wk-checklist-empty { color: var(--ink-faint); font-size: 12px; padding: 2px 0; }
 .wk-checklist-item { display: flex; align-items: center; gap: 7px; }
