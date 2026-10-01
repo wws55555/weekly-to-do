@@ -111,8 +111,8 @@ button.wk-checklist-badge { font-family: 'IBM Plex Mono', monospace; border: non
 .wk-checklist-edit-input { flex: 1; font-size: 13px; line-height: 1.4; color: var(--ink); border: none; border-bottom: 1px solid var(--accent); background: transparent; padding: 1px 0 2px; font-family: inherit; }
 .wk-checklist-edit-input:focus-visible { outline: none; }
 .wk-checklist-add-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-.wk-checklist-input { flex: 1; border: none; border-bottom: 1px solid var(--line); background: transparent; font-size: 13px; color: var(--ink); padding: 3px 2px; font-family: inherit; }
-.wk-checklist-input:focus-visible { outline: none; border-color: var(--accent); }
+.wk-checklist-input { flex: 1; border: none; background: transparent; font-size: 13px; color: var(--ink); padding: 3px 2px; font-family: inherit; }
+.wk-checklist-input:focus-visible { outline: none; }
 .wk-checklist-input::placeholder { color: var(--ink-faint); }
 .wk-checklist-add-btn { width: 20px; height: 20px; border-radius: 6px; border: none; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none; }
 .wk-checklist-add-btn:hover { background: var(--accent); color: #fff; }
