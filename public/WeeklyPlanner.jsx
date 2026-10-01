@@ -12,6 +12,7 @@ function WeeklyPlanner() {
   const [itemMenuOpenId, setItemMenuOpenId] = React.useState(null);
   const [panelMenuOpen, setPanelMenuOpen] = React.useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = React.useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = React.useState(false);
   const [checklistInput, setChecklistInput] = React.useState("");
   const [editingChecklistItemId, setEditingChecklistItemId] = React.useState(null);
   const [editingChecklistText, setEditingChecklistText] = React.useState("");
@@ -21,8 +22,9 @@ function WeeklyPlanner() {
   const dragPointerId = React.useRef(null);
   const suppressPopRef = React.useRef(false);
   const suppressCalendarPopRef = React.useRef(false);
+  const suppressPasswordPopRef = React.useRef(false);
   const {
-    authUser, authChecked, authError, authPending, signUp, signIn, signOut,
+    authUser, authChecked, authError, authPending, signUp, signIn, signOut, changePassword,
     connectionOk, loading,
     selectedDay, setSelectedDay, goToDate,
     today, weekDates,
@@ -78,6 +80,22 @@ function WeeklyPlanner() {
       suppressCalendarPopRef.current = false;
     };
   }, [calendarOpen]);
+
+  // same back-button pattern for the change-password modal
+  React.useEffect(() => {
+    if (!passwordModalOpen) return;
+    window.history.pushState({ wkModal: true }, "");
+    const onPopState = () => {
+      suppressPasswordPopRef.current = true;
+      setPasswordModalOpen(false);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (!suppressPasswordPopRef.current) window.history.back();
+      suppressPasswordPopRef.current = false;
+    };
+  }, [passwordModalOpen]);
 
   const openCalendar = () => {
     const base = selectedDay !== null ? weekDates[selectedDay] : today;
@@ -232,6 +250,9 @@ function WeeklyPlanner() {
               <>
                 <div className="wk-menu-backdrop" onClick={() => setAccountMenuOpen(false)} />
                 <div className="wk-item-menu-dropdown">
+                  <button onClick={() => { setAccountMenuOpen(false); setPasswordModalOpen(true); }}>
+                    <KeyRound size={13} /> 비밀번호 변경
+                  </button>
                   <button className="is-danger" onClick={() => { setAccountMenuOpen(false); signOut(); }}>
                     <LogOut size={13} /> 로그아웃
                   </button>
@@ -498,6 +519,10 @@ function WeeklyPlanner() {
             </div>
           </div>
         </div>
+      )}
+
+      {passwordModalOpen && (
+        <ChangePasswordModal onSubmit={changePassword} onClose={() => setPasswordModalOpen(false)} />
       )}
     </div>
   );

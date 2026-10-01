@@ -124,6 +124,9 @@ html, body {
 .wk-modal-body { padding: 12px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .wk-modal-footer { padding: 10px 16px 16px; border-top: 1px solid var(--line); }
 
+.wk-password-form { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.wk-password-success { font-size: 13px; color: var(--ink-soft); text-align: center; padding: 6px 0 4px; }
+
 .wk-calendar-nav { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 16px 4px; }
 .wk-calendar-month { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ink-soft); min-width: 64px; text-align: center; }
 .wk-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 8px 16px 18px; }

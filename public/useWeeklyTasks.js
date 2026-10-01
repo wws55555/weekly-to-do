@@ -90,6 +90,18 @@ function useWeeklyTasks() {
       .finally(() => setAuthPending(false));
   }, []);
 
+  // rejects with an Error whose message is already user-facing Korean text,
+  // so the change-password form can show it as-is
+  const changePassword = useCallback((currentPassword, newPassword) => {
+    return WeeklyPlannerAPI.changePassword(currentPassword, newPassword).catch((e) => {
+      const code = e && e.code;
+      const message = code === "auth/wrong-password" || code === "auth/invalid-credential"
+        ? "현재 비밀번호가 틀렸어요."
+        : authErrorMessage(e);
+      throw new Error(message);
+    });
+  }, []);
+
   const signOut = useCallback(() => {
     prevWeekCarryRanForRef.current = null;
     return WeeklyPlannerAPI.signOutUser();
@@ -329,7 +341,7 @@ function useWeeklyTasks() {
   }, [tasks]);
 
   return {
-    authUser, authChecked, authError, authPending, signUp, signIn, signOut,
+    authUser, authChecked, authError, authPending, signUp, signIn, signOut, changePassword,
     weekOffset, setWeekOffset,
     connectionOk, loading,
     selectedDay, setSelectedDay, goToDate,

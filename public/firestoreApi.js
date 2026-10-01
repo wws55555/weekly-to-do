@@ -48,6 +48,17 @@ var WeeklyPlannerAPI = (function () {
     return firebase.auth().signInWithEmailAndPassword(email, password);
   }
 
+  // Firebase requires a recent sign-in before changing the password, so
+  // re-authenticate with the current password first, then update it
+  function changePassword(currentPassword, newPassword) {
+    var user = firebase.auth().currentUser;
+    if (!user) return Promise.reject(new Error("로그인이 필요해요."));
+    var credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
+    return user.reauthenticateWithCredential(credential).then(function () {
+      return user.updatePassword(newPassword);
+    });
+  }
+
   function signOutUser() {
     return firebase.auth().signOut();
   }
@@ -119,6 +130,7 @@ var WeeklyPlannerAPI = (function () {
     signUp: signUp,
     signIn: signIn,
     signOutUser: signOutUser,
+    changePassword: changePassword,
     watchWeek: watchWeek,
     writeWeek: writeWeek,
     runCarryOverFromPrevWeek: runCarryOverFromPrevWeek,
