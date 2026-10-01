@@ -16,7 +16,7 @@ function AuthScreen({ onSignIn, onSignUp, error, pending }) {
   return (
     <div className="auth-root">
       <div className="auth-card">
-        <h1 className="wk-title">위클리 플래너</h1>
+        <h1 className="wk-title">데일리 플래너</h1>
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <input

@@ -43,8 +43,8 @@ html, body {
 
 .wk-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .wk-header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.wk-logout-btn { font-size: 12px; font-weight: 500; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface); }
-.wk-logout-btn:hover { border-color: var(--danger); color: var(--danger); }
+.wk-account-btn { width: 32px; height: 32px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); transition: color .15s ease, border-color .15s ease; }
+.wk-account-btn:hover, .wk-account-btn.is-active { border-color: var(--accent); color: var(--accent); }
 
 .wk-nav-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--ink); transition: background .15s ease, border-color .15s ease; }
 .wk-nav-btn:hover { background: var(--accent-soft); border-color: var(--accent); }

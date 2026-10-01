@@ -11,6 +11,7 @@ function WeeklyPlanner() {
   const [checklistOpenId, setChecklistOpenId] = React.useState(null);
   const [itemMenuOpenId, setItemMenuOpenId] = React.useState(null);
   const [panelMenuOpen, setPanelMenuOpen] = React.useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = React.useState(false);
   const [checklistInput, setChecklistInput] = React.useState("");
   const [editingChecklistItemId, setEditingChecklistItemId] = React.useState(null);
   const [editingChecklistText, setEditingChecklistText] = React.useState("");
@@ -220,10 +221,24 @@ function WeeklyPlanner() {
     <div className="wk-root">
       <div className="wk-header">
         <div>
-          <h1 className="wk-title">위클리 플래너</h1>
+          <h1 className="wk-title">데일리 플래너</h1>
         </div>
         <div className="wk-header-actions">
-          <button className="wk-logout-btn" onClick={signOut}>로그아웃</button>
+          <div className="wk-item-menu">
+            <button className={`wk-account-btn${accountMenuOpen ? " is-active" : ""}`} onClick={() => setAccountMenuOpen((v) => !v)} aria-label="계정">
+              <UserIcon size={16} />
+            </button>
+            {accountMenuOpen && (
+              <>
+                <div className="wk-menu-backdrop" onClick={() => setAccountMenuOpen(false)} />
+                <div className="wk-item-menu-dropdown">
+                  <button className="is-danger" onClick={() => { setAccountMenuOpen(false); signOut(); }}>
+                    <LogOut size={13} /> 로그아웃
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           <div className="wk-header-nav">
             <button className="wk-today-btn" onClick={() => goToDate(today)} disabled={isToday}>오늘</button>
             <button className="wk-calendar-btn" onClick={openCalendar} aria-label="달력 열기">
