@@ -146,10 +146,16 @@ function useWeeklyTasks() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekKey, authUser]);
 
-  const persist = useCallback((next) => {
-    if (!tasksReady) return; // `next` was derived from another doc's tasks
-    setTasks(next); // optimistic UI update; onSnapshot will confirm
-    WeeklyPlannerAPI.writeWeek(authUser.uid, weekKey, next).catch((e) => {
+  // every write to the current week goes through here: fn maps a tasks array
+  // to the next one (or null for "nothing to do"). It's applied to local
+  // state right away (optimistic UI; onSnapshot confirms), and separately to
+  // the server's latest array inside a transaction — so it must be pure and
+  // must express the change relative to its argument, never close over
+  // `tasks` itself.
+  const mutate = useCallback((fn) => {
+    if (!tasksReady) return; // local `tasks` belongs to another doc
+    setTasks((prev) => fn(prev) || prev);
+    WeeklyPlannerAPI.updateWeek(authUser.uid, weekKey, fn).catch((e) => {
       console.error(e);
       setConnectionOk(false);
     });
@@ -178,14 +184,20 @@ function useWeeklyTasks() {
 
   useEffect(() => {
     if (weekOffset !== 0 || loading || !tasksReady || todayIndexInWeek < 0) return;
-    const toForward = sortForCarryOver(tasks.filter((t) => !t.done && !t.forwarded && t.day < todayIndexInWeek));
-    if (toForward.length === 0) return;
-    const forwardIds = new Set(toForward.map((t) => t.id));
-    const marked = tasks.map((t) => (forwardIds.has(t.id) ? { ...t, forwarded: true } : t));
     const now = Date.now();
-    const copies = toForward.map((t, i) => makeCarriedCopy(t, todayIndexInWeek, monday, now + i));
-    persist([...marked, ...copies]);
-  }, [tasks, tasksReady, todayIndexInWeek, weekOffset, loading, persist, monday]);
+    // re-evaluated against the server's copy inside the transaction too, so
+    // two devices opening the app at once can't both forward the same task
+    const carry = (list) => {
+      const toForward = sortForCarryOver(list.filter((t) => !t.done && !t.forwarded && t.day < todayIndexInWeek));
+      if (toForward.length === 0) return null;
+      const forwardIds = new Set(toForward.map((t) => t.id));
+      const marked = list.map((t) => (forwardIds.has(t.id) ? { ...t, forwarded: true } : t));
+      const copies = toForward.map((t, i) => makeCarriedCopy(t, todayIndexInWeek, monday, now + i));
+      return [...marked, ...copies];
+    };
+    if (carry(tasks) === null) return;
+    mutate(carry);
+  }, [tasks, tasksReady, todayIndexInWeek, weekOffset, loading, mutate, monday]);
 
   // carry over incomplete tasks left in last week's document, once per week view
   useEffect(() => {
@@ -233,15 +245,15 @@ function useWeeklyTasks() {
   const addTask = (text, dayIdx) => {
     const trimmed = text.trim();
     if (!trimmed || dayIdx === null) return;
-    const next = [...tasks, { id: uid(), day: dayIdx, text: trimmed, done: false, createdAt: Date.now() }];
-    persist(next);
+    const task = { id: uid(), day: dayIdx, text: trimmed, done: false, createdAt: Date.now() };
+    mutate((list) => [...list, task]);
   };
   // editTask optionally also moves the task to a new date: targetDate is a
   // local-midnight Date, or omitted/null to just change the text in place.
   // Landing on a day within the currently-open week is a plain client-side
   // day change; landing in a different week crosses Firestore documents, so
   // that case goes through a transaction (moveTaskAcrossWeeks) instead of
-  // persist() — the task optimistically disappears from the current view
+  // mutate() — the task optimistically disappears from the current view
   // right away, and the target week's own subscription picks it up when it's
   // next viewed.
   const editTask = (id, text, targetDate) => {
@@ -249,7 +261,7 @@ function useWeeklyTasks() {
     if (!trimmed) return;
 
     if (!targetDate) {
-      persist(tasks.map((t) => (t.id === id ? { ...t, text: trimmed } : t)));
+      mutate((list) => list.map((t) => (t.id === id ? { ...t, text: trimmed } : t)));
       return;
     }
 
@@ -258,7 +270,7 @@ function useWeeklyTasks() {
     const targetDay = Math.round((targetDate - targetMonday) / 86400000);
 
     if (targetWeekKey === weekKey) {
-      persist(tasks.map((t) => (t.id === id ? { ...t, text: trimmed, day: targetDay } : t)));
+      mutate((list) => list.map((t) => (t.id === id ? { ...t, text: trimmed, day: targetDay } : t)));
       return;
     }
 
@@ -276,18 +288,25 @@ function useWeeklyTasks() {
       setConnectionOk(false);
     });
   };
-  const toggleDone = (id) => persist(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  // the new value is decided from what the user saw, not re-toggled against
+  // the server copy — otherwise a concurrent toggle elsewhere would flip back
+  const toggleDone = (id) => {
+    const target = tasks.find((t) => t.id === id);
+    if (!target) return;
+    const done = !target.done;
+    mutate((list) => list.map((t) => (t.id === id ? { ...t, done } : t)));
+  };
   const removeTask = (id) => {
     const target = tasks.find((t) => t.id === id);
     const label = target ? withEul(target.text) : "이 할 일을";
     if (window.confirm(`${label} 삭제할까요?`)) {
-      persist(tasks.filter((t) => t.id !== id));
+      mutate((list) => list.filter((t) => t.id !== id));
     }
   };
   const clearDay = (dayIdx) => {
     if (tasks.filter((t) => t.day === dayIdx).length === 0) return;
     if (window.confirm("이 요일의 할 일을 모두 지울까요?")) {
-      persist(tasks.filter((t) => t.day !== dayIdx));
+      mutate((list) => list.filter((t) => t.day !== dayIdx));
     }
   };
   // persists a manual order for one day's tasks — orderedIds is the full,
@@ -296,28 +315,33 @@ function useWeeklyTasks() {
   // snap back down on the next render (by design, not a bug)
   const reorderDay = (dayIdx, orderedIds) => {
     const orderIndex = new Map(orderedIds.map((id, i) => [id, i]));
-    persist(tasks.map((t) => (t.day === dayIdx && orderIndex.has(t.id) ? { ...t, order: orderIndex.get(t.id) } : t)));
+    mutate((list) => list.map((t) => (t.day === dayIdx && orderIndex.has(t.id) ? { ...t, order: orderIndex.get(t.id) } : t)));
   };
 
   // per-task detail checklist — each task's own `checklist: [{id, text, done}]`
   const addChecklistItem = (taskId, text) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    persist(tasks.map((t) =>
+    const item = { id: uid(), text: trimmed, done: false };
+    mutate((list) => list.map((t) =>
       t.id === taskId
-        ? { ...t, checklist: [...(t.checklist || []), { id: uid(), text: trimmed, done: false }] }
+        ? { ...t, checklist: [...(t.checklist || []), item] }
         : t
     ));
   };
   const toggleChecklistItem = (taskId, itemId) => {
-    persist(tasks.map((t) =>
+    const task = tasks.find((t) => t.id === taskId);
+    const item = task && (task.checklist || []).find((c) => c.id === itemId);
+    if (!item) return;
+    const done = !item.done;
+    mutate((list) => list.map((t) =>
       t.id === taskId
-        ? { ...t, checklist: (t.checklist || []).map((c) => (c.id === itemId ? { ...c, done: !c.done } : c)) }
+        ? { ...t, checklist: (t.checklist || []).map((c) => (c.id === itemId ? { ...c, done } : c)) }
         : t
     ));
   };
   const removeChecklistItem = (taskId, itemId) => {
-    persist(tasks.map((t) =>
+    mutate((list) => list.map((t) =>
       t.id === taskId
         ? { ...t, checklist: (t.checklist || []).filter((c) => c.id !== itemId) }
         : t
@@ -326,7 +350,7 @@ function useWeeklyTasks() {
   const editChecklistItem = (taskId, itemId, text) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    persist(tasks.map((t) =>
+    mutate((list) => list.map((t) =>
       t.id === taskId
         ? { ...t, checklist: (t.checklist || []).map((c) => (c.id === itemId ? { ...c, text: trimmed } : c)) }
         : t

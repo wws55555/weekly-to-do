@@ -71,8 +71,22 @@ var WeeklyPlannerAPI = (function () {
     }, onError);
   }
 
-  function writeWeek(uid, weekKey, tasks) {
-    return weekDoc(uid, weekKey).set({ tasks: tasks, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  // read-modify-write of one week's tasks array inside a transaction:
+  // mutate(currentServerTasks) returns the next array, or null to skip the
+  // write. Since the whole array is rewritten, deriving it from the server's
+  // latest copy (rather than whatever this client last saw) is what keeps a
+  // write from wiping changes made meanwhile by another device or by the
+  // concurrent carry-over transaction. mutate may run more than once if the
+  // transaction retries, so it must be pure.
+  function updateWeek(uid, weekKey, mutate) {
+    var ref = weekDoc(uid, weekKey);
+    return firebase.firestore().runTransaction(async function (tx) {
+      var snap = await tx.get(ref);
+      var currentTasks = snap.exists && Array.isArray(snap.data().tasks) ? snap.data().tasks : [];
+      var next = mutate(currentTasks);
+      if (!next) return;
+      tx.set(ref, { tasks: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    });
   }
 
   // reads this week's + last week's docs (both under the same uid) in one
@@ -105,7 +119,7 @@ var WeeklyPlannerAPI = (function () {
   // targetTasks) decides what to write to each side; returns null to skip
   // the write entirely, or { nextSource, nextTarget } to commit both docs
   // atomically. Only call this when sourceKey !== targetKey — same-doc
-  // moves should just go through writeWeek instead.
+  // moves should just go through updateWeek instead.
   function moveTaskAcrossWeeks(uid, sourceKey, targetKey, computeMove) {
     var db = firebase.firestore();
     var sourceRef = weekDoc(uid, sourceKey);
@@ -132,7 +146,7 @@ var WeeklyPlannerAPI = (function () {
     signOutUser: signOutUser,
     changePassword: changePassword,
     watchWeek: watchWeek,
-    writeWeek: writeWeek,
+    updateWeek: updateWeek,
     runCarryOverFromPrevWeek: runCarryOverFromPrevWeek,
     moveTaskAcrossWeeks: moveTaskAcrossWeeks
   };
