@@ -199,7 +199,26 @@ function useWeeklyTasks() {
     mutate(carry);
   }, [tasks, tasksReady, todayIndexInWeek, weekOffset, loading, mutate, monday]);
 
-  // carry over incomplete tasks left in last week's document, once per week view
+  // bumped to re-run the last-week carry-over after it failed (e.g. the app
+  // was resumed into a new week before the network was back — transactions
+  // fail offline); a no-op once it has succeeded for this week
+  const [prevWeekCarryRetry, setPrevWeekCarryRetry] = useState(0);
+  useEffect(() => {
+    const retry = () => {
+      if (document.visibilityState === "visible") setPrevWeekCarryRetry((n) => n + 1);
+    };
+    window.addEventListener("online", retry);
+    document.addEventListener("visibilitychange", retry);
+    return () => {
+      window.removeEventListener("online", retry);
+      document.removeEventListener("visibilitychange", retry);
+    };
+  }, []);
+
+  // carry over incomplete tasks left in last week's document, once per week
+  // view — the ref marks this week as handled up front (so re-renders don't
+  // start a second transaction while one is in flight) and is cleared again
+  // on failure so the next retry trigger runs it again
   useEffect(() => {
     if (weekOffset !== 0 || loading || todayIndexInWeek < 0) return;
     if (!authUser) return;
@@ -208,6 +227,7 @@ function useWeeklyTasks() {
 
     const prevMonday = addDays(monday, -7);
     const prevKey = toKey(prevMonday);
+    let retryTimer = null;
 
     WeeklyPlannerAPI.runCarryOverFromPrevWeek(authUser.uid, weekKey, prevKey, (currentTasks, prevTasks) => {
       const toForward = sortForCarryOver(prevTasks.filter((t) => !t.done && !t.forwarded));
@@ -218,8 +238,14 @@ function useWeeklyTasks() {
       const now = Date.now();
       const copies = toForward.map((t, i) => makeCarriedCopy(t, todayIndexInWeek, prevMonday, now + i));
       return { nextCurrent: [...currentTasks, ...copies], markedPrev };
-    }).catch((e) => console.error("carry-over (prev week) failed", e));
-  }, [weekOffset, loading, todayIndexInWeek, authUser, weekKey, monday]);
+    }).catch((e) => {
+      console.error("carry-over (prev week) failed", e);
+      if (prevWeekCarryRanForRef.current === weekKey) prevWeekCarryRanForRef.current = null;
+      // also retry on a timer, in case no online/visibility event follows
+      retryTimer = setTimeout(() => setPrevWeekCarryRetry((n) => n + 1), 30000);
+    });
+    return () => clearTimeout(retryTimer);
+  }, [weekOffset, loading, todayIndexInWeek, authUser, weekKey, monday, prevWeekCarryRetry]);
 
   // for the calendar picker's per-date markers: resolves to
   // { "YYYY-MM-DD": "open" | "done" } for every date in [fromDate, toDate]'s
