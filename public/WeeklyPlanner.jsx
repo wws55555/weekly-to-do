@@ -1,5 +1,6 @@
-// Pure UI: renders whatever useWeeklyTasks() gives it. No Firestore calls,
-// no carry-over logic live here — see useWeeklyTasks.js / firestoreApi.js.
+// Pure UI: renders whatever useWeeklyTasks() (and, in 메모장 mode,
+// useMemos()) gives it. No Firestore calls, no carry-over logic live here —
+// see useWeeklyTasks.js / useMemos.js / firestoreApi.js.
 function WeeklyPlanner() {
   const [inputText, setInputText] = React.useState("");
   const [editingId, setEditingId] = React.useState(null);
@@ -21,6 +22,10 @@ function WeeklyPlanner() {
   const suppressCalendarPopRef = React.useRef(false);
   const suppressPasswordPopRef = React.useRef(false);
   const suppressEditPopRef = React.useRef(false);
+  // which view is showing: "planner" or "memo" — remembered per device
+  const [mode, setMode] = React.useState(() => {
+    try { return localStorage.getItem("wkMode") === "memo" ? "memo" : "planner"; } catch (e) { return "planner"; }
+  });
   const {
     authUser, authChecked, authError, authPending, signUp, signIn, signOut, changePassword,
     fetchCalendarMarks,
@@ -31,6 +36,12 @@ function WeeklyPlanner() {
     addChecklistItem, toggleChecklistItem, removeChecklistItem, editChecklistItem,
     tasksFor, progressFor,
   } = useWeeklyTasks();
+  const { memos, memosLoading, memosConnectionOk, addMemo, editMemo, removeMemo } = useMemos(authUser);
+
+  const switchMode = (next) => {
+    setMode(next);
+    try { localStorage.setItem("wkMode", next); } catch (e) {}
+  };
 
   // leaving the day (or the whole day's list) mid-reorder would leave stale
   // drag/checklist state around, so just drop out of reorder mode
@@ -234,36 +245,58 @@ function WeeklyPlanner() {
   return (
     <div className="wk-root">
       <div className="wk-header">
-        <div>
-          <h1 className="wk-title">데일리 플래너</h1>
+        <h1 className="wk-title">데일리 플래너</h1>
+        <div className="wk-item-menu">
+          <button className={`wk-account-btn${accountMenuOpen ? " is-active" : ""}`} onClick={() => setAccountMenuOpen((v) => !v)} aria-label="계정">
+            <UserIcon size={16} />
+          </button>
+          {accountMenuOpen && (
+            <>
+              <div className="wk-menu-backdrop" onClick={() => setAccountMenuOpen(false)} />
+              <div className="wk-item-menu-dropdown">
+                <button onClick={() => { setAccountMenuOpen(false); setPasswordModalOpen(true); }}>
+                  <KeyRound size={13} /> 비밀번호 변경
+                </button>
+                <button className="is-danger" onClick={() => { setAccountMenuOpen(false); signOut(); }}>
+                  <LogOut size={13} /> 로그아웃
+                </button>
+              </div>
+            </>
+          )}
         </div>
-        <div className="wk-header-actions">
-          <div className="wk-item-menu">
-            <button className={`wk-account-btn${accountMenuOpen ? " is-active" : ""}`} onClick={() => setAccountMenuOpen((v) => !v)} aria-label="계정">
-              <UserIcon size={16} />
-            </button>
-            {accountMenuOpen && (
-              <>
-                <div className="wk-menu-backdrop" onClick={() => setAccountMenuOpen(false)} />
-                <div className="wk-item-menu-dropdown">
-                  <button onClick={() => { setAccountMenuOpen(false); setPasswordModalOpen(true); }}>
-                    <KeyRound size={13} /> 비밀번호 변경
-                  </button>
-                  <button className="is-danger" onClick={() => { setAccountMenuOpen(false); signOut(); }}>
-                    <LogOut size={13} /> 로그아웃
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+      </div>
+
+      {/* mode switch on the left, the planner's 오늘/달력 on the same row to the right */}
+      <div className="wk-toolbar">
+        <div className="wk-mode-switch" role="tablist">
+          <button role="tab" aria-selected={mode === "planner"} className={`wk-mode-btn${mode === "planner" ? " is-active" : ""}`} onClick={() => switchMode("planner")}>
+            <CalendarCheck size={15} /> 플래너
+          </button>
+          <button role="tab" aria-selected={mode === "memo"} className={`wk-mode-btn${mode === "memo" ? " is-active" : ""}`} onClick={() => switchMode("memo")}>
+            <NotebookPen size={15} /> 메모장
+          </button>
+        </div>
+        {mode === "planner" && (
           <div className="wk-header-nav">
             <button className="wk-today-btn" onClick={() => goToDate(today)} disabled={isToday}>오늘</button>
             <button className="wk-calendar-btn" onClick={openCalendar} aria-label="달력 열기">
               <CalendarIcon size={16} />
             </button>
           </div>
-        </div>
+        )}
       </div>
+
+      {mode === "memo" ? (
+        <MemoPad
+          memos={memos}
+          loading={memosLoading}
+          connectionOk={memosConnectionOk}
+          onAdd={addMemo}
+          onEdit={editMemo}
+          onRemove={removeMemo}
+        />
+      ) : (
+      <>
 
       {loading ? (
         <div className="wk-loading">불러오는 중…</div>
@@ -392,6 +425,8 @@ function WeeklyPlanner() {
       )}
 
       {!connectionOk && <div className="wk-warning">서버와 연결이 원활하지 않아요. 변경사항이 저장되지 않을 수 있어요.</div>}
+      </>
+      )}
 
       {checklistTask && (
         <div className="wk-modal-backdrop" onClick={closeChecklistModal}>

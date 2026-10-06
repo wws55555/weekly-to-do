@@ -1,9 +1,10 @@
 // Firebase/Firestore access only — no React here. Everything the app does
 // against the backend (auth, reading/writing a week's tasks, the cross-week
-// carry-over transaction) is exposed through the WeeklyPlannerAPI object.
+// carry-over transaction, memos) is exposed through the WeeklyPlannerAPI object.
 //
 // Each signed-in account owns its own private data at
-// users/{uid}/weeklyPlanner/{weekKey} — nothing is shared between accounts.
+// users/{uid}/weeklyPlanner/{weekKey} and users/{uid}/memos/{memoId} —
+// nothing is shared between accounts.
 var WeeklyPlannerAPI = (function () {
   var firebaseConfig = {
     apiKey: "AIzaSyCjfiJ54a7BGn4FiEzt-0x_qbNWNWOa7Zs",
@@ -61,6 +62,39 @@ var WeeklyPlannerAPI = (function () {
 
   function signOutUser() {
     return firebase.auth().signOut();
+  }
+
+  function memoCollection(uid) {
+    return firebase.firestore().collection("users").doc(uid).collection("memos");
+  }
+
+  // live-subscribes to every memo of this account, most recently edited
+  // first; onMemos gets [{ id, text, createdAt, updatedAt }]. Unlike the
+  // planner's week docs, each memo is its own document and is only ever
+  // written whole by the one device editing it, so plain set/update/delete
+  // (no transactions) is enough — which also means memo edits are queued
+  // offline by the SDK instead of failing. Returns an unsubscribe fn.
+  function watchMemos(uid, onMemos, onError) {
+    return memoCollection(uid).orderBy("updatedAt", "desc").onSnapshot(function (qs) {
+      var memos = [];
+      qs.forEach(function (d) { memos.push(Object.assign({ id: d.id }, d.data())); });
+      onMemos(memos);
+    }, onError);
+  }
+
+  // timestamps are client-side ms (not serverTimestamp) so a just-written
+  // memo sorts correctly in the local snapshot before the server confirms
+  function createMemo(uid, text) {
+    var now = Date.now();
+    return memoCollection(uid).add({ text: text, createdAt: now, updatedAt: now });
+  }
+
+  function updateMemo(uid, memoId, text) {
+    return memoCollection(uid).doc(memoId).update({ text: text, updatedAt: Date.now() });
+  }
+
+  function deleteMemo(uid, memoId) {
+    return memoCollection(uid).doc(memoId).delete();
   }
 
   // live-subscribes to a week's tasks array; returns an unsubscribe fn
@@ -168,6 +202,10 @@ var WeeklyPlannerAPI = (function () {
     updateWeek: updateWeek,
     fetchWeeksInRange: fetchWeeksInRange,
     runCarryOverFromPrevWeek: runCarryOverFromPrevWeek,
-    moveTaskAcrossWeeks: moveTaskAcrossWeeks
+    moveTaskAcrossWeeks: moveTaskAcrossWeeks,
+    watchMemos: watchMemos,
+    createMemo: createMemo,
+    updateMemo: updateMemo,
+    deleteMemo: deleteMemo
   };
 })();

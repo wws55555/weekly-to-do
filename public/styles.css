@@ -38,10 +38,15 @@ html, body {
 .wk-root input { font-family: inherit; }
 .wk-root button:focus-visible, .wk-root input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.wk-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.wk-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.wk-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 22px; }
 .wk-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: -0.02em; margin: 0; }
 
-.wk-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.wk-mode-switch { display: inline-flex; gap: 4px; padding: 3px; background: var(--surface-soft); border-radius: 999px; }
+.wk-mode-btn { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: none; border-radius: 999px; background: transparent; color: var(--ink-soft); font-size: 12px; font-weight: 500; transition: background .15s ease, color .15s ease; }
+.wk-mode-btn:hover { color: var(--ink); }
+.wk-mode-btn.is-active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+
 .wk-header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .wk-account-btn { width: 32px; height: 32px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); transition: color .15s ease, border-color .15s ease; }
 .wk-account-btn:hover, .wk-account-btn.is-active { border-color: var(--accent); color: var(--accent); }
@@ -172,6 +177,20 @@ button.wk-checklist-badge { font-family: 'IBM Plex Mono', monospace; border: non
 .wk-add-input::placeholder { color: var(--ink-faint); }
 .wk-add-btn { width: 27px; height: 27px; border-radius: 7px; border: none; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none; }
 .wk-add-btn:hover { background: var(--accent); color: #fff; }
+
+.wk-memo-head-content { align-items: center; }
+.wk-memo-item { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 10px 8px; border: none; border-radius: 8px; background: transparent; text-align: left; color: var(--ink); transition: background .12s ease; }
+.wk-memo-item:hover { background: var(--surface-soft); }
+.wk-memo-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wk-memo-title { font-size: 14px; line-height: 1.5; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk-memo-preview { font-size: 12px; line-height: 1.4; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk-memo-date { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-faint); flex: none; padding-top: 2px; }
+/* fixed height so the textarea (not the buttons) is what shrinks when the
+   on-screen keyboard shrinks the viewport — 저장 stays visible while typing */
+.wk-memo-modal { max-width: 480px; height: 80vh; }
+.wk-memo-modal .wk-edit-form { flex: 1; }
+.wk-memo-modal-actions { display: flex; align-items: center; gap: 2px; flex: none; }
+.wk-memo-textarea { flex: 1; min-height: 80px; resize: none; line-height: 1.6; font-family: inherit; }
 
 .wk-loading { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 40px 0; }
 .wk-warning { font-size: 11px; color: var(--danger); margin-top: 10px; text-align: right; }
