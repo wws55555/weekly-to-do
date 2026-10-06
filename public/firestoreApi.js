@@ -48,6 +48,17 @@ var WeeklyPlannerAPI = (function () {
     return firebase.auth().signInWithEmailAndPassword(email, password);
   }
 
+  // Firebase requires a recent sign-in before changing the password, so
+  // re-authenticate with the current password first, then update it
+  function changePassword(currentPassword, newPassword) {
+    var user = firebase.auth().currentUser;
+    if (!user) return Promise.reject(new Error("로그인이 필요해요."));
+    var credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
+    return user.reauthenticateWithCredential(credential).then(function () {
+      return user.updatePassword(newPassword);
+    });
+  }
+
   function signOutUser() {
     return firebase.auth().signOut();
   }
@@ -60,8 +71,41 @@ var WeeklyPlannerAPI = (function () {
     }, onError);
   }
 
-  function writeWeek(uid, weekKey, tasks) {
-    return weekDoc(uid, weekKey).set({ tasks: tasks, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  // one-shot read of every week doc whose weekKey (a Monday, YYYY-MM-DD)
+  // falls in [fromKey, toKey] — keys sort chronologically as strings, so a
+  // document-id range query covers it. Resolves to { weekKey: tasks }; weeks
+  // with no doc are simply absent. Used by the calendar picker's markers.
+  function fetchWeeksInRange(uid, fromKey, toKey) {
+    var idField = firebase.firestore.FieldPath.documentId();
+    return firebase.firestore().collection("users").doc(uid).collection("weeklyPlanner")
+      .where(idField, ">=", fromKey).where(idField, "<=", toKey)
+      .get()
+      .then(function (qs) {
+        var out = {};
+        qs.forEach(function (d) {
+          var data = d.data();
+          out[d.id] = Array.isArray(data.tasks) ? data.tasks : [];
+        });
+        return out;
+      });
+  }
+
+  // read-modify-write of one week's tasks array inside a transaction:
+  // mutate(currentServerTasks) returns the next array, or null to skip the
+  // write. Since the whole array is rewritten, deriving it from the server's
+  // latest copy (rather than whatever this client last saw) is what keeps a
+  // write from wiping changes made meanwhile by another device or by the
+  // concurrent carry-over transaction. mutate may run more than once if the
+  // transaction retries, so it must be pure.
+  function updateWeek(uid, weekKey, mutate) {
+    var ref = weekDoc(uid, weekKey);
+    return firebase.firestore().runTransaction(async function (tx) {
+      var snap = await tx.get(ref);
+      var currentTasks = snap.exists && Array.isArray(snap.data().tasks) ? snap.data().tasks : [];
+      var next = mutate(currentTasks);
+      if (!next) return;
+      tx.set(ref, { tasks: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    });
   }
 
   // reads this week's + last week's docs (both under the same uid) in one
@@ -94,7 +138,7 @@ var WeeklyPlannerAPI = (function () {
   // targetTasks) decides what to write to each side; returns null to skip
   // the write entirely, or { nextSource, nextTarget } to commit both docs
   // atomically. Only call this when sourceKey !== targetKey — same-doc
-  // moves should just go through writeWeek instead.
+  // moves should just go through updateWeek instead.
   function moveTaskAcrossWeeks(uid, sourceKey, targetKey, computeMove) {
     var db = firebase.firestore();
     var sourceRef = weekDoc(uid, sourceKey);
@@ -119,8 +163,10 @@ var WeeklyPlannerAPI = (function () {
     signUp: signUp,
     signIn: signIn,
     signOutUser: signOutUser,
+    changePassword: changePassword,
     watchWeek: watchWeek,
-    writeWeek: writeWeek,
+    updateWeek: updateWeek,
+    fetchWeeksInRange: fetchWeeksInRange,
     runCarryOverFromPrevWeek: runCarryOverFromPrevWeek,
     moveTaskAcrossWeeks: moveTaskAcrossWeeks
   };

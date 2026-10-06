@@ -3,23 +3,29 @@
 function WeeklyPlanner() {
   const [inputText, setInputText] = React.useState("");
   const [editingId, setEditingId] = React.useState(null);
-  const [editingText, setEditingText] = React.useState("");
-  const [editingDate, setEditingDate] = React.useState("");
   const [reorderMode, setReorderMode] = React.useState(false);
   const [reorderIds, setReorderIds] = React.useState([]);
   const [draggingId, setDraggingId] = React.useState(null);
   const [checklistOpenId, setChecklistOpenId] = React.useState(null);
+  const [itemMenuOpenId, setItemMenuOpenId] = React.useState(null);
+  const [panelMenuOpen, setPanelMenuOpen] = React.useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = React.useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = React.useState(false);
   const [checklistInput, setChecklistInput] = React.useState("");
   const [editingChecklistItemId, setEditingChecklistItemId] = React.useState(null);
   const [editingChecklistText, setEditingChecklistText] = React.useState("");
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
   const rowRefs = React.useRef({});
   const dragPointerId = React.useRef(null);
   const suppressPopRef = React.useRef(false);
+  const suppressCalendarPopRef = React.useRef(false);
+  const suppressPasswordPopRef = React.useRef(false);
+  const suppressEditPopRef = React.useRef(false);
   const {
-    authUser, authChecked, authError, authPending, signUp, signIn, signOut,
-    weekOffset, setWeekOffset,
+    authUser, authChecked, authError, authPending, signUp, signIn, signOut, changePassword,
+    fetchCalendarMarks,
     connectionOk, loading,
-    selectedDay, setSelectedDay,
+    selectedDay, setSelectedDay, goToDate,
     today, weekDates,
     addTask, editTask, toggleDone, removeTask, clearDay, reorderDay,
     addChecklistItem, toggleChecklistItem, removeChecklistItem, editChecklistItem,
@@ -33,6 +39,9 @@ function WeeklyPlanner() {
     setDraggingId(null);
     setChecklistOpenId(null);
     setEditingChecklistItemId(null);
+    setItemMenuOpenId(null);
+    setPanelMenuOpen(false);
+    setEditingId(null);
   }, [selectedDay]);
 
   // while the checklist modal is open, push a history entry so the phone's
@@ -54,29 +63,82 @@ function WeeklyPlanner() {
     };
   }, [checklistOpenId]);
 
+  // same pattern as the checklist modal above: push a history entry while
+  // the calendar is open so the hardware back button closes it instead of
+  // exiting the app
+  React.useEffect(() => {
+    if (!calendarOpen) return;
+    window.history.pushState({ wkModal: true }, "");
+    const onPopState = () => {
+      suppressCalendarPopRef.current = true;
+      setCalendarOpen(false);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (!suppressCalendarPopRef.current) window.history.back();
+      suppressCalendarPopRef.current = false;
+    };
+  }, [calendarOpen]);
+
+  // same back-button pattern for the edit-task modal
+  React.useEffect(() => {
+    if (!editingId) return;
+    window.history.pushState({ wkModal: true }, "");
+    const onPopState = () => {
+      suppressEditPopRef.current = true;
+      setEditingId(null);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (!suppressEditPopRef.current) window.history.back();
+      suppressEditPopRef.current = false;
+    };
+  }, [editingId]);
+
+  // same back-button pattern for the change-password modal
+  React.useEffect(() => {
+    if (!passwordModalOpen) return;
+    window.history.pushState({ wkModal: true }, "");
+    const onPopState = () => {
+      suppressPasswordPopRef.current = true;
+      setPasswordModalOpen(false);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (!suppressPasswordPopRef.current) window.history.back();
+      suppressPasswordPopRef.current = false;
+    };
+  }, [passwordModalOpen]);
+
+  const openCalendar = () => setCalendarOpen(true);
+  const closeCalendar = () => setCalendarOpen(false);
+  const pickCalendarDate = (date) => {
+    goToDate(date);
+    setCalendarOpen(false);
+  };
+
   const handleAddTask = () => {
     addTask(inputText, selectedDay);
     setInputText("");
   };
 
-  const startEdit = (t) => {
-    setEditingId(t.id);
-    setEditingText(t.text);
-    setEditingDate(toKey(weekDates[selectedDay]));
-  };
-  const commitEdit = () => {
-    if (editingId) {
-      const originalDateKey = toKey(weekDates[selectedDay]);
-      if (editingDate && editingDate !== originalDateKey) {
-        const [y, m, d] = editingDate.split("-").map(Number);
-        editTask(editingId, editingText, new Date(y, m - 1, d));
-      } else {
-        editTask(editingId, editingText);
-      }
+  // the edit modal works on whichever task editingId names; every task in the
+  // current day panel shares that panel's date, so that's the initial date
+  const startEdit = (t) => setEditingId(t.id);
+  const saveEdit = (text, dateKey) => {
+    const originalDateKey = toKey(weekDates[selectedDay]);
+    if (dateKey !== originalDateKey) {
+      const [y, m, d] = dateKey.split("-").map(Number);
+      editTask(editingId, text, new Date(y, m - 1, d));
+    } else {
+      editTask(editingId, text);
     }
     setEditingId(null);
   };
-  const cancelEdit = () => setEditingId(null);
+  const closeEditModal = () => setEditingId(null);
 
   const toggleChecklistOpen = (id) => {
     setChecklistOpenId((prev) => (prev === id ? null : id));
@@ -101,8 +163,13 @@ function WeeklyPlanner() {
   };
   const cancelEditChecklistItem = () => setEditingChecklistItemId(null);
 
+  const toggleItemMenu = (id) => setItemMenuOpenId((prev) => (prev === id ? null : id));
+  const closeItemMenu = () => setItemMenuOpenId(null);
+
   const enterReorderMode = (list) => {
     setChecklistOpenId(null);
+    setItemMenuOpenId(null);
+    setPanelMenuOpen(false);
     setReorderIds(list.map((t) => t.id));
     setReorderMode(true);
   };
@@ -156,30 +223,44 @@ function WeeklyPlanner() {
     return <AuthScreen onSignIn={signIn} onSignUp={signUp} error={authError} pending={authPending} />;
   }
 
-  const rangeLabel = `${formatMD(weekDates[0])} – ${formatMD(weekDates[6])}`;
-  const isThisWeek = weekOffset === 0;
+  const isToday = selectedDay !== null && isSameDay(weekDates[selectedDay], today);
   const activeList = selectedDay === null ? [] : tasksFor(selectedDay);
   const activeProgress = selectedDay === null ? { done: 0, total: 0 } : progressFor(selectedDay);
   const taskById = Object.fromEntries(activeList.map((t) => [t.id, t]));
   const checklistTask = checklistOpenId ? taskById[checklistOpenId] : null;
   const checklistTaskItems = checklistTask ? (checklistTask.checklist || []) : [];
+  const editingTask = editingId ? taskById[editingId] : null;
 
   return (
     <div className="wk-root">
       <div className="wk-header">
-        <div className="wk-account">
-          <button className="wk-logout-btn" onClick={signOut}>로그아웃</button>
-        </div>
         <div>
-          <h1 className="wk-title">위클리 플래너</h1>
-          <p className="wk-subtitle">나만의 주간 할 일 목록</p>
+          <h1 className="wk-title">데일리 플래너</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-          <div className="wk-nav">
-            <button className="wk-nav-btn" onClick={() => setWeekOffset((w) => w - 1)} aria-label="이전 주"><ChevronLeft size={16} /></button>
-            <span className="wk-range">{rangeLabel}</span>
-            <button className="wk-nav-btn" onClick={() => setWeekOffset((w) => w + 1)} aria-label="다음 주"><ChevronRight size={16} /></button>
-            <button className="wk-today-btn" onClick={() => setWeekOffset(0)} disabled={isThisWeek}>이번 주</button>
+        <div className="wk-header-actions">
+          <div className="wk-item-menu">
+            <button className={`wk-account-btn${accountMenuOpen ? " is-active" : ""}`} onClick={() => setAccountMenuOpen((v) => !v)} aria-label="계정">
+              <UserIcon size={16} />
+            </button>
+            {accountMenuOpen && (
+              <>
+                <div className="wk-menu-backdrop" onClick={() => setAccountMenuOpen(false)} />
+                <div className="wk-item-menu-dropdown">
+                  <button onClick={() => { setAccountMenuOpen(false); setPasswordModalOpen(true); }}>
+                    <KeyRound size={13} /> 비밀번호 변경
+                  </button>
+                  <button className="is-danger" onClick={() => { setAccountMenuOpen(false); signOut(); }}>
+                    <LogOut size={13} /> 로그아웃
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="wk-header-nav">
+            <button className="wk-today-btn" onClick={() => goToDate(today)} disabled={isToday}>오늘</button>
+            <button className="wk-calendar-btn" onClick={openCalendar} aria-label="달력 열기">
+              <CalendarIcon size={16} />
+            </button>
           </div>
         </div>
       </div>
@@ -188,49 +269,39 @@ function WeeklyPlanner() {
         <div className="wk-loading">불러오는 중…</div>
       ) : (
         <>
-          <div className="wk-strip">
-            {weekDates.map((date, idx) => {
-              const isToday = isSameDay(date, today);
-              const isSelected = selectedDay === idx;
-              const { done, total } = progressFor(idx);
-              const hasContent = total > 0;
-              const allComplete = hasContent && done === total;
-              const dotClass = total === 0 ? "" : allComplete ? "all-done" : "has-tasks";
-              return (
-                <button
-                  key={idx}
-                  className={`wk-day-btn${isSelected ? " is-selected" : ""}${isToday ? " is-today" : ""}${hasContent ? " has-content" : ""}${allComplete ? " all-complete" : ""}`}
-                  onClick={() => setSelectedDay(idx)}
-                >
-                  {isToday && <span className="wk-today-mark" />}
-                  {hasContent && <span className={`wk-day-badge${allComplete ? " all-complete" : ""}`}>{total}</span>}
-                  <span className="wk-day-btn-name">{DAY_LABELS[idx]}</span>
-                  <span className="wk-day-btn-date">{formatMD(date)}</span>
-                  <span className={`wk-day-dot ${dotClass}`} />
-                </button>
-              );
-            })}
-          </div>
-
           {selectedDay !== null && (
-            <div className={`wk-panel${isSameDay(weekDates[selectedDay], today) ? " is-today" : ""}`}>
+            <div className={`wk-panel${isToday ? " is-today" : ""}`}>
               <div className="wk-panel-head">
                 <div className="wk-tab-bg" />
                 <div className="wk-panel-head-content">
                   <span>
-                    <span className="wk-panel-day">{DAY_LABELS_FULL[selectedDay]}</span>
-                    <span className="wk-panel-date">{formatMD(weekDates[selectedDay])}</span>
+                    <span className="wk-panel-day">{formatMD(weekDates[selectedDay])}</span>
+                    <span className="wk-panel-date">({DAY_LABELS[selectedDay]})</span>
                   </span>
-                  <span>
+                  <span className="wk-panel-actions">
                     <span className="wk-panel-count">{activeProgress.total > 0 ? `${activeProgress.done}/${activeProgress.total}` : ""}</span>
-                    <button
-                      className={`wk-reorder-btn${reorderMode ? " is-active" : ""}`}
-                      onClick={() => (reorderMode ? exitReorderMode() : enterReorderMode(activeList))}
-                      disabled={!reorderMode && activeList.length < 2}
-                    >
-                      {reorderMode ? "완료" : "순서변경"}
-                    </button>
-                    <button className="wk-clear-btn" onClick={() => clearDay(selectedDay)} aria-label="이 요일 전체 삭제"><Trash2 size={13} /></button>
+                    {reorderMode ? (
+                      <button className="wk-reorder-btn is-active" onClick={exitReorderMode}>완료</button>
+                    ) : (
+                      <div className="wk-item-menu">
+                        <button className={`wk-item-menu-btn${panelMenuOpen ? " is-active" : ""}`} onClick={() => setPanelMenuOpen((v) => !v)} aria-label="더보기">
+                          <MoreVertical size={16} />
+                        </button>
+                        {panelMenuOpen && (
+                          <>
+                            <div className="wk-menu-backdrop" onClick={() => setPanelMenuOpen(false)} />
+                            <div className="wk-item-menu-dropdown">
+                              <button disabled={activeList.length < 2} onClick={() => enterReorderMode(activeList)}>
+                                <Grip size={13} /> 순서변경
+                              </button>
+                              <button className="is-danger" disabled={activeList.length === 0} onClick={() => { clearDay(selectedDay); setPanelMenuOpen(false); }}>
+                                <Trash2 size={13} /> 전체 삭제
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </span>
                 </div>
               </div>
@@ -267,48 +338,37 @@ function WeeklyPlanner() {
                       const checklistDone = checklist.filter((c) => c.done).length;
                       return (
                         <div key={t.id} className="wk-item">
-                          {editingId === t.id ? (
-                            <>
-                              <div className="wk-edit-fields">
-                                <input
-                                  className="wk-edit-input"
-                                  value={editingText}
-                                  autoFocus
-                                  onChange={(e) => setEditingText(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
-                                    if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
-                                  }}
-                                />
-                                <input
-                                  type="date"
-                                  className="wk-edit-date"
-                                  value={editingDate}
-                                  onChange={(e) => setEditingDate(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
-                                    if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
-                                  }}
-                                />
-                              </div>
-                              <button className="wk-edit-confirm-btn" onClick={commitEdit} aria-label="수정 완료"><Check size={14} strokeWidth={3} /></button>
-                              <button className="wk-edit-cancel-btn" onClick={cancelEdit} aria-label="수정 취소"><X size={14} /></button>
-                            </>
-                          ) : (
-                            <>
-                              <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
-                                {t.done && <Check size={12} strokeWidth={3} />}
-                              </button>
-                              <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
-                              {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
-                              {checklist.length > 0 && <span className="wk-checklist-badge">{checklistDone}/{checklist.length}</span>}
-                              <button className={`wk-checklist-btn${checklistOpenId === t.id ? " is-active" : ""}`} onClick={() => toggleChecklistOpen(t.id)} aria-label="세부 체크리스트">
-                                <ListChecks size={13} />
-                              </button>
-                              <button className="wk-edit-btn" onClick={() => startEdit(t)} aria-label="수정"><Pencil size={13} /></button>
-                              <button className="wk-del-btn" onClick={() => removeTask(t.id)} aria-label="삭제"><X size={14} /></button>
-                            </>
+                          <button className={`wk-check${t.done ? " is-done" : ""}`} onClick={() => toggleDone(t.id)} aria-label={t.done ? "완료 취소" : "완료로 표시"}>
+                            {t.done && <Check size={12} strokeWidth={3} />}
+                          </button>
+                          <span className={`wk-item-text${t.done ? " is-done" : ""}`}>{t.text}</span>
+                          {t.carriedOver && t.originDate && <span className="wk-carried-badge">{t.originDate}</span>}
+                          {checklist.length > 0 && (
+                            <button className="wk-checklist-badge" onClick={() => toggleChecklistOpen(t.id)} aria-label="상세 열기">
+                              {checklistDone}/{checklist.length}
+                            </button>
                           )}
+                          <div className="wk-item-menu">
+                            <button className={`wk-item-menu-btn${itemMenuOpenId === t.id ? " is-active" : ""}`} onClick={() => toggleItemMenu(t.id)} aria-label="더보기">
+                              <MoreVertical size={15} />
+                            </button>
+                            {itemMenuOpenId === t.id && (
+                              <>
+                                <div className="wk-menu-backdrop" onClick={closeItemMenu} />
+                                <div className="wk-item-menu-dropdown">
+                                  <button onClick={() => { toggleChecklistOpen(t.id); closeItemMenu(); }}>
+                                    <ListChecks size={13} /> 상세
+                                  </button>
+                                  <button onClick={() => { startEdit(t); closeItemMenu(); }}>
+                                    <Pencil size={13} /> 수정
+                                  </button>
+                                  <button className="is-danger" onClick={() => { removeTask(t.id); closeItemMenu(); }}>
+                                    <X size={13} /> 삭제
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -394,6 +454,39 @@ function WeeklyPlanner() {
             </div>
           </div>
         </div>
+      )}
+
+      {calendarOpen && (
+        <div className="wk-modal-backdrop" onClick={closeCalendar}>
+          <div className="wk-modal wk-calendar-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="wk-modal-head">
+              <span className="wk-modal-title">날짜 선택</span>
+              <button className="wk-modal-close" onClick={closeCalendar} aria-label="닫기"><X size={16} /></button>
+            </div>
+            <CalendarGrid
+              selectedDate={selectedDay !== null ? weekDates[selectedDay] : null}
+              today={today}
+              onPick={pickCalendarDate}
+              fetchMarks={fetchCalendarMarks}
+            />
+          </div>
+        </div>
+      )}
+
+      {editingTask && (
+        <EditTaskModal
+          key={editingTask.id}
+          initialText={editingTask.text}
+          initialDateKey={toKey(weekDates[selectedDay])}
+          today={today}
+          fetchMarks={fetchCalendarMarks}
+          onSave={saveEdit}
+          onClose={closeEditModal}
+        />
+      )}
+
+      {passwordModalOpen && (
+        <ChangePasswordModal onSubmit={changePassword} onClose={() => setPasswordModalOpen(false)} />
       )}
     </div>
   );
